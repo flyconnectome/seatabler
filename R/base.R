@@ -54,18 +54,8 @@ seatable_base_impl <- memoise::memoise(function(base_name = NULL, table = NULL,
     base_name <- sel$base_name
     workspace_id <- sel$workspace_id
   }
-  if (is.null(workspace_id)) {
-    wsdf <- seatable_workspaces(con = con)
-    sel <- wsdf[wsdf$name == base_name, , drop = FALSE]
-    sel <- sel[!duplicated(sel$workspace_id), , drop = FALSE]
-    if (nrow(sel) == 0)
-      stop("Unable to find a workspace containing base: ", base_name,
-           "\nCheck the base name and your access permissions.")
-    if (nrow(sel) > 1)
-      stop("Multiple workspaces contain base: ", base_name,
-           "\nSpecify `workspace_id` to resolve the ambiguity.")
-    workspace_id <- sel$workspace_id
-  }
+  if (is.null(workspace_id))
+    workspace_id <- seatable_workspace_id(base_name, con = con)
   reticulate::py_call(ac$get_base, workspace_id = workspace_id,
                       base_name = base_name)
 }, cache = cache_mem(max_age = 3 * 24 * 60^2))
@@ -85,6 +75,32 @@ seatable_workspaces <- function(con = default_connection()) {
   wsdf2 <- dplyr::bind_rows(wsl[lengths(wsl) > 0])
   wsdf <- dplyr::bind_rows(wsdf, wsdf2)
   wsdf[!duplicated(wsdf[c("workspace_id", "name")]), , drop = FALSE]
+}
+
+#' Find the workspace containing a base
+#'
+#' @description Resolves the workspace id for a named base. Some SeaTable REST
+#'   endpoints (snapshots, for instance) are addressed by workspace rather than
+#'   by base uuid, and users rarely know their workspace ids.
+#'
+#' @param base_name Name of the base.
+#' @param con A [seatable_connection]. When the connection already carries a
+#'   `workspace_id` that is returned unchanged.
+#' @return The workspace id, as a character string.
+#' @export
+seatable_workspace_id <- function(base_name, con = default_connection()) {
+  con <- as_connection(con)
+  if (!is.null(con$workspace_id)) return(as.character(con$workspace_id))
+  wsdf <- seatable_workspaces(con = con)
+  sel <- wsdf[wsdf$name == base_name, , drop = FALSE]
+  sel <- sel[!duplicated(sel$workspace_id), , drop = FALSE]
+  if (nrow(sel) == 0)
+    stop("Unable to find a workspace containing base: ", base_name,
+         "\nCheck the base name and your access permissions.")
+  if (nrow(sel) > 1)
+    stop("Multiple workspaces contain base: ", base_name,
+         "\nSpecify `workspace_id` to resolve the ambiguity.")
+  as.character(sel$workspace_id)
 }
 
 #' List all tables across all bases visible to a connection

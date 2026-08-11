@@ -24,6 +24,10 @@
 #'   server-specific maximum; pagination returns the full result.
 #' @param chunksize Advanced: force `LIMIT`/`OFFSET` paging in fixed windows of
 #'   this size. The default `NULL` auto-detects the server's per-call cap.
+#' @param retries Number of times to retry a page that fails because the server
+#'   is rate-limiting us (HTTP 429), with exponential backoff between attempts.
+#'   Long paginated reads are the usual way to hit a quota, and losing the whole
+#'   read to one throttled page is expensive. Set to `0` to fail fast.
 #' @return An R `data.frame` (or a pandas `DataFrame` when `python = TRUE`).
 #' @export
 #' @examples
@@ -34,7 +38,8 @@
 #' }
 seatable_query <- function(sql, con = default_connection(),
                            limit = 100000L, base = NULL, python = FALSE,
-                           convert = TRUE, paginate = TRUE, chunksize = NULL) {
+                           convert = TRUE, paginate = TRUE, chunksize = NULL,
+                           retries = 3L) {
   con <- as_connection(con)
   checkmate::assert_character(sql, len = 1, pattern = "select", ignore.case = TRUE)
   res <- stringr::str_match(sql,
@@ -56,13 +61,26 @@ seatable_query <- function(sql, con = default_connection(),
   colinfo <- if (python) NULL else seatable_columns(table, base, con = con)
 
   run_one <- function(sqltext) {
-    pyout <- reticulate::py_capture_output(
-      ll <- try(reticulate::py_call(base$query, sqltext, convert = convert),
-                silent = TRUE))
-    if (inherits(ll, "try-error")) {
-      # TODO(port): fafbseg/bancr detect HTTP 429 rate-limits here and back off.
-      warning(paste("No rows returned by seatable_query:", pyout, collapse = "\n"))
-      return(NULL)
+    # The SDK does the HTTP itself, so a rate limit reaches us only as text on
+    # Python's stderr; sniff for it and back off rather than losing the read.
+    for (attempt in seq_len(max(1L, as.integer(retries) + 1L))) {
+      pyout <- reticulate::py_capture_output(
+        ll <- try(reticulate::py_call(base$query, sqltext, convert = convert),
+                  silent = TRUE))
+      if (!inherits(ll, "try-error")) break
+      if (!is_rate_limit(pyout) || attempt > as.integer(retries)) {
+        msg <- if (is_rate_limit(pyout))
+          paste0("SeaTable is rate-limiting this query (HTTP 429) and ", retries,
+                 " retries did not clear it. Check your quota on the server.\n",
+                 pyout)
+        else paste("No rows returned by seatable_query:", pyout, collapse = "\n")
+        warning(msg)
+        return(NULL)
+      }
+      backoff <- 2^(attempt - 1)
+      message("Rate-limited by SeaTable; retrying in ", backoff, "s (attempt ",
+              attempt, " of ", retries, ").")
+      Sys.sleep(backoff)
     }
     pd <- reticulate::import("pandas")
     reticulate::py_capture_output(pdd <- reticulate::py_call(pd$DataFrame, ll))
@@ -124,11 +142,36 @@ sql2fields <- function(sql) {
   trimws(scan(text = fieldstring, sep = ",", what = "", quiet = TRUE))
 }
 
+# Does this Python traceback look like a rate limit rather than a real error?
+is_rate_limit <- function(pyout) {
+  isTRUE(grepl("429|too many requests|rate.?limit", paste(pyout, collapse = " "),
+               ignore.case = TRUE))
+}
+
 # Minimal pandas DataFrame -> R data.frame conversion.
 # TODO(port): replace with fafbseg's flytable2df + pandas2df + fix_coltypes so
 # that column R-types, list/multi-select columns and NA handling match exactly.
 seatable_pandas2df <- function(pdd) {
   df <- reticulate::py_to_r(pdd)
   if (!is.data.frame(df)) df <- as.data.frame(df, stringsAsFactors = FALSE)
+  depython_columns(df)
+}
+
+# Convert any column that survived py_to_r() as a live Python object.
+#
+# py_to_r() on a pandas DataFrame does not always return native R vectors: a
+# column of mixed or object dtype can arrive as a numpy.ndarray, which reaches R
+# as an environment. Those blow up in ordinary R idiom -- `x[is.na(x)] <- ...`
+# on a numpy array raises an IndexError from a wrong-length boolean index --
+# often far from here and with a confusing message. Coerce them once, on the way
+# in, and fall back to NA for anything that will not convert.
+depython_columns <- function(df) {
+  if (!isTRUE(ncol(df) > 0)) return(df)
+  nr <- nrow(df)
+  for (i in seq_along(df)) {
+    if (!is.environment(df[[i]])) next
+    df[[i]] <- tryCatch(df[[i]]$tolist(),
+                        error = function(e) rep(NA_character_, nr))
+  }
   df
 }

@@ -12,7 +12,8 @@ seatable_query(
   python = FALSE,
   convert = TRUE,
   paginate = TRUE,
-  chunksize = NULL
+  chunksize = NULL,
+  retries = 3L
 )
 }
 \arguments{
@@ -38,6 +39,11 @@ server-specific maximum; pagination returns the full result.}
 
 \item{chunksize}{Advanced: force \code{LIMIT}/\code{OFFSET} paging in fixed windows of
 this size. The default \code{NULL} auto-detects the server's per-call cap.}
+
+\item{retries}{Number of times to retry a page that fails because the server
+is rate-limiting us (HTTP 429), with exponential backoff between attempts.
+Long paginated reads are the usual way to hit a quota, and losing the whole
+read to one throttled page is expensive. Set to \code{0} to fail fast.}
 }
 \value{
 An R \code{data.frame} (or a pandas \code{DataFrame} when \code{python = TRUE}).

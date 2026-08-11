@@ -2,12 +2,17 @@ Package: seatabler
 Type: Package
 Title: Generic R Client for SeaTable Servers
 Version: 0.0.0.9000
-Authors@R:
+Authors@R: c(
     person(given = "Gregory",
            family = "Jefferis",
            role = c("aut", "cre"),
            email = "jefferis@gmail.com",
-           comment = c(ORCID = "0000-0002-0587-9355"))
+           comment = c(ORCID = "0000-0002-0587-9355")),
+    person(given = "Alexander",
+           family = "Bates",
+           role = "ctb",
+           email = "alexander.shakeel.bates@gmail.com",
+           comment = c(ORCID = "0000-0002-1195-0445")))
 Description: A server-agnostic R client for SeaTable
     (<https://seatable.io>) databases. Provides a connection object capturing a
     server URL, API token environment variable and workspace, together with
@@ -24,10 +29,12 @@ Imports:
     stringr,
     dplyr,
     memoise,
-    cachem
+    cachem,
+    utils
 Suggests:
     testthat (>= 3.0.0),
-    withr
+    withr,
+    httr2
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/flyconnectome/seatabler
