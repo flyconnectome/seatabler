@@ -157,8 +157,8 @@ connection bound, bodies delegate to `seatabler::seatable_*`.
   `flytable_set_celltype`, `add_celltype_info`, the `flytable_list_selected`
   wrapper (it calls `flywire_ids()` before the generic list-selected), and all
   `flytable-wip.R` functions. `simple_python` (python-env management) stays here
-  too; `seatabler` ships only a minimal `check_seatable()` that imports
-  `seatable_api` and errors with install guidance.
+  too; `seatabler` ships only a minimal `check_seatable()` (see §5a for how it
+  reuses `simple_python` without depending on fafbseg).
 - **bancr:** `banctable_ngl_update`, `banc_update_status`, `banctable_updateids`,
   `banctable_annotate`, `franken_meta`.
 
@@ -202,6 +202,36 @@ implementation as canonical; a future bancr migration can retire its own
 variant.
 
 ---
+
+## 5a. Python provisioning without depending on fafbseg
+
+`seatabler` must not depend on `fafbseg`, yet fafbseg manages the shared Python
+environment for the whole ecosystem via `simple_python()`. Resolved by
+**dependency inversion**:
+
+- `seatabler` declares the *requirement* and defines an *extension point*. Its
+  `check_seatable()` tries to import `seatable_api`; on failure it (1) calls a
+  consumer-registered provisioner if present, (2) offers an interactive
+  `reticulate::py_install()` into the env reticulate already uses, then (3)
+  errors with guidance.
+- The extension point is the `seatabler.python_provisioner` option — a
+  zero-argument function. Because **fafbseg depends on seatabler** (not the
+  reverse), fafbseg registers it in its own `.onLoad()`:
+
+  ```r
+  # fafbseg .onLoad():
+  options(seatabler.python_provisioner = function()
+    fafbseg::simple_python(pkgs = "seatable_api"))
+  ```
+
+  So seatabler gets `simple_python`'s environment management for fafbseg users,
+  with zero dependency on fafbseg. Standalone users need no hook (they get the
+  `py_install()` fallback). fafbseg should also add `seatable_api` to
+  `simple_python`'s standard package set so it is simply present in the managed
+  env.
+
+This same hook pattern is the general mechanism for any future ecosystem
+integration seatabler needs from a consumer.
 
 ## 6. Backward compatibility (hard constraint)
 
@@ -288,9 +318,11 @@ To let bancr migrate with minimal changes to `seatabler` itself:
 1. **Hosting:** `flyconnectome/seatabler` (where the consumer packages live) or
    `natverse/seatabler`. Leaning flyconnectome.
 2. **CRAN:** submit eventually? Affects dependency hygiene.
-3. **Python dependency:** document `pip install seatable_api`; `seatabler` should
-   not manage python environments itself (that stays in fafbseg's
-   `simple_python`).
+3. **Python dependency:** resolved (see §5a) — `seatabler` declares the
+   `seatable_api` requirement and exposes a `seatabler.python_provisioner` hook;
+   fafbseg registers `simple_python` through it. seatabler never manages python
+   environments itself. Remaining sub-question: confirm fafbseg adds
+   `seatable_api` to `simple_python`'s default package set.
 4. **Cache location default per server** (`seatabler.cachedir` + per-connection
    `cachedir`).
 5. **Ownership/authorship** of the package (currently scaffolded solo; add
