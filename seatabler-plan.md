@@ -172,6 +172,16 @@ additions worth having in the shared package. They are **reserved additive
 surface (owner: bancr)** — not required for the first `seatabler` release, and
 best contributed by bancr when it migrates:
 
+> **Status (2026-08-11, ASB).** Items 1–7 below have now been contributed from
+> bancr, in `R/rest.R`, `R/schema.R`, `R/bigdata.R`, `R/snapshots.R` and
+> `R/query.R`; item 5 was already present in `R/columns.R`. They are additive —
+> nothing in Phases 1–4 depends on them, and the `TODO(port)` markers in
+> `R/query.R` are untouched. Two deliberate departures from the sketch below:
+> the REST helper uses `httr2` rather than `httr`, since bancr's api-gateway
+> code was already written against it; and only snapshot *listing* is wrapped,
+> because restoring is destructive and better done in the UI, which confirms
+> first.
+
 1. **Column-schema mutation** — add / batch-add / delete columns (SDK
    `base.insert_column` / `delete_column`, with `ColumnTypes` enum handling and
    the `convert = FALSE` reticulate detail that avoids the enum being coerced
