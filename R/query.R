@@ -28,7 +28,13 @@
 #'   is rate-limiting us (HTTP 429), with exponential backoff between attempts.
 #'   Long paginated reads are the usual way to hit a quota, and losing the whole
 #'   read to one throttled page is expensive. Set to `0` to fail fast.
-#' @return An R `data.frame` (or a pandas `DataFrame` when `python = TRUE`).
+#' @param progress Whether to report each page of a paginated read as it
+#'   arrives. Defaults to `TRUE` in an interactive session. Reading a large
+#'   table takes minutes, and silence is hard to distinguish from a hang.
+#' @return An R `data.frame` (or a pandas `DataFrame` when `python = TRUE`). If
+#'   a paginated read stops early because a page kept failing, the rows read so
+#'   far are returned along with a warning saying where it stopped, rather than
+#'   throwing away a read that may have taken minutes.
 #' @export
 #' @examples
 #' \dontrun{
@@ -39,7 +45,7 @@
 seatable_query <- function(sql, con = default_connection(),
                            limit = 100000L, base = NULL, python = FALSE,
                            convert = TRUE, paginate = TRUE, chunksize = NULL,
-                           retries = 3L) {
+                           retries = 3L, progress = interactive()) {
   con <- as_connection(con)
   checkmate::assert_character(sql, len = 1, pattern = "select", ignore.case = TRUE)
   res <- stringr::str_match(sql,
@@ -119,13 +125,24 @@ seatable_query <- function(sql, con = default_connection(),
     remaining <- limit - offset
     if (remaining < 1) break
     ps <- min(cap, remaining)
+    if (isTRUE(progress)) message("Reading from row ", offset, "...")
     page <- run_one(paste(sql, "LIMIT", ps, "OFFSET", offset))
-    if (is.null(page) || nrow(page) == 0) break
+    # A failed page is not the same as running out of rows. Keep what we have
+    # -- re-reading a large table is expensive -- but say so, because silently
+    # short data is worse than no data.
+    if (is.null(page)) {
+      warning("The read stopped early at row ", offset, ", so this is a ",
+              "partial result: ", offset, " row(s) of up to ", limit,
+              ". Re-run to try again, or raise `retries`.")
+      break
+    }
+    if (nrow(page) == 0) break
     pages[[length(pages) + 1]] <- page
     offset <- offset + nrow(page)
     if (nrow(page) < ps) break
   }
   if (length(pages) == 0) return(NULL)
+  if (isTRUE(progress)) message("Read ", offset, " rows.")
   out <- if (length(pages) == 1) pages[[1]] else {
     tt <- try(do.call(rbind, pages), silent = TRUE)
     if (inherits(tt, "try-error")) tt <- dplyr::bind_rows(pages)
