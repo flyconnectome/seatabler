@@ -1,0 +1,35 @@
+Package: seatabler
+Type: Package
+Title: Generic R Client for SeaTable Servers
+Version: 0.0.0.9000
+Authors@R:
+    person(given = "Gregory",
+           family = "Jefferis",
+           role = c("aut", "cre"),
+           email = "jefferis@gmail.com",
+           comment = c(ORCID = "0000-0002-0587-9355"))
+Description: A server-agnostic R client for SeaTable
+    (<https://seatable.io>) databases. Provides a connection object capturing a
+    server URL, API token environment variable and workspace, together with
+    functions to query, read, write and cache tables. Contains no default
+    server and no domain-specific logic; intended as a shared foundation for
+    packages such as 'fafbseg' and 'bancr' that wrap it with their own
+    server configuration.
+License: GPL-3
+Encoding: UTF-8
+Language: en-GB
+Imports:
+    reticulate,
+    checkmate,
+    stringr,
+    dplyr,
+    memoise,
+    cachem
+Suggests:
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+URL: https://github.com/flyconnectome/seatabler
+BugReports: https://github.com/flyconnectome/seatabler/issues

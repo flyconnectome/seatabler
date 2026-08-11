@@ -1,0 +1,6 @@
+^seatabler-plan\.md$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.git$
+^\.github$
+^LICENSE\.md$
