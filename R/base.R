@@ -16,6 +16,7 @@
 #' @param workspace_id Workspace id. Defaults to the connection's `workspace_id`;
 #'   discovered from `base_name` when `NULL`.
 #' @param cached Whether to use the memoised base object.
+#' @importFrom cachem cache_mem
 #' @return A Python SeaTable `Base` object (reticulate-wrapped).
 #' @export
 seatable_base <- function(base_name = NULL, table = NULL,
@@ -67,7 +68,7 @@ seatable_base_impl <- memoise::memoise(function(base_name = NULL, table = NULL,
   }
   reticulate::py_call(ac$get_base, workspace_id = workspace_id,
                       base_name = base_name)
-}, cache = cachem::cache_mem(max_age = 3 * 24 * 60^2))
+}, cache = cache_mem(max_age = 3 * 24 * 60^2))
 
 #' List workspaces (and their bases) visible to a connection
 #'
