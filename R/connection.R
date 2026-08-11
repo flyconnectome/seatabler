@@ -17,15 +17,21 @@
 #'   wrapper packages can bind one connection rather than passing
 #'   URL/token/workspace arguments around.
 #'
-#' @details The token itself is never stored in the object — only the name of
-#'   the environment variable that holds it (`token_envvar`). This keeps the
-#'   object safe to print and share, and means the token is always read fresh.
-#'   Resolve it with [seatable_token()].
+#' @details By default the token itself is not stored in the object — only the
+#'   name of the environment variable that holds it (`token_envvar`), resolved
+#'   fresh at call time by [seatable_token()]. You may instead embed a literal
+#'   `token`, which is convenient when talking to several servers (each needs
+#'   its own token); the print method redacts it.
 #'
 #' @param url Base URL of the SeaTable server (e.g.
 #'   `"https://cloud.seatable.io/"`). Required — there is no default server.
-#' @param token_envvar Name of the environment variable holding the API token.
-#'   Defaults to the `seatabler.token_envvar` option, or `"SEATABLE_TOKEN"`.
+#' @param token Optional API token string embedded directly in the connection.
+#'   When supplied it takes precedence over `token_envvar`. It is redacted by the
+#'   print method, but is still an ordinary list element — do not commit
+#'   connections carrying an embedded token to shared repositories.
+#' @param token_envvar Name of the environment variable holding the API token,
+#'   used when `token` is not supplied. Defaults to the `seatabler.token_envvar`
+#'   option, or `"SEATABLE_TOKEN"`.
 #' @param workspace_id Optional workspace id (character or numeric). When `NULL`
 #'   it is discovered from the base name where possible.
 #' @param cachedir Optional per-connection cache directory. When `NULL` the
@@ -41,6 +47,7 @@
 #'   workspace_id = "57832")
 #' con
 seatable_connection <- function(url,
+                                token = NULL,
                                 token_envvar = getOption("seatabler.token_envvar",
                                                          "SEATABLE_TOKEN"),
                                 workspace_id = NULL,
@@ -49,11 +56,13 @@ seatable_connection <- function(url,
   if (missing(url) || !is.character(url) || length(url) != 1 || !nzchar(url))
     stop("`url` must be a single non-empty string naming the SeaTable server.")
   checkmate::assert_string(token_envvar, min.chars = 1)
+  if (!is.null(token)) checkmate::assert_string(token, min.chars = 1)
   # normalise to a single trailing slash
   url <- sub("/*$", "/", url)
   structure(
     list(
       url = url,
+      token = token,
       token_envvar = token_envvar,
       workspace_id = if (is.null(workspace_id)) NULL else as.character(workspace_id),
       cachedir = cachedir,
@@ -69,17 +78,29 @@ seatable_connection <- function(url,
 is_seatable_connection <- function(x) inherits(x, "seatable_connection")
 
 #' @export
-print.seatable_connection <- function(x, ...) {
+format.seatable_connection <- function(x, ...) {
   tok <- Sys.getenv(x$token_envvar, unset = NA_character_)
-  tokstate <- if (is.na(tok) || !nzchar(tok)) "not set" else "set"
-  cat("<seatable_connection>",
-      if (!is.null(x$name)) paste0(" ", x$name) else "", "\n", sep = "")
-  cat("  url:          ", x$url, "\n", sep = "")
-  cat("  token_envvar: ", x$token_envvar, " (", tokstate, ")\n", sep = "")
-  cat("  workspace_id: ", if (is.null(x$workspace_id)) "<discover>" else x$workspace_id,
-      "\n", sep = "")
+  env_state <- if (is.na(tok) || !nzchar(tok)) "not set" else "set"
+  lines <- c(
+    paste0("<seatable_connection>",
+           if (!is.null(x$name)) paste0(" ", x$name) else ""),
+    paste0("  url:          ", x$url))
+  # Never print the literal token, only that one is present.
+  if (!is.null(x$token))
+    lines <- c(lines, "  token:        <set, hidden>")
+  lines <- c(lines,
+    paste0("  token_envvar: ", x$token_envvar, " (", env_state, ")"),
+    paste0("  workspace_id: ",
+           if (is.null(x$workspace_id)) "<discover>" else x$workspace_id))
   if (!is.null(x$cachedir))
-    cat("  cachedir:     ", x$cachedir, "\n", sep = "")
+    lines <- c(lines, paste0("  cachedir:     ", x$cachedir))
+  lines
+}
+
+#' @export
+print.seatable_connection <- function(x, ...) {
+  cat(format(x, ...), sep = "\n")
+  cat("\n")
   invisible(x)
 }
 
@@ -91,12 +112,16 @@ print.seatable_connection <- function(x, ...) {
 #' @return The token string, or `NA_character_` when unset and `error = FALSE`.
 #' @export
 seatable_token <- function(con = default_connection(), error = TRUE) {
-  stopifnot(is_seatable_connection(con))
+  con <- as_connection(con)
+  # An embedded literal token wins over the environment variable.
+  if (!is.null(con$token) && nzchar(con$token)) return(con$token)
   tok <- Sys.getenv(con$token_envvar, unset = NA_character_)
   if (is.na(tok) || !nzchar(tok)) {
     if (error)
-      stop("No token found in environment variable `", con$token_envvar, "`.\n",
-           "Set it (e.g. in ~/.Renviron), or use seatable_set_token() to obtain one.")
+      stop("No token for this connection.\n",
+           "Embed one via seatable_connection(token = ...), set the environment ",
+           "variable `", con$token_envvar, "` (e.g. in ~/.Renviron), or run ",
+           "seatable_generate_token(user, pwd) to obtain one.")
     return(NA_character_)
   }
   tok

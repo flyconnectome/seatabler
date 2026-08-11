@@ -22,6 +22,14 @@ test_that("seatable_token reads the named env var", {
   })
 })
 
+test_that("seatable_token prefers an embedded token over the env var", {
+  con <- seatable_connection("https://x/", token = "literal-tok",
+                             token_envvar = "SEATABLER_TEST_TOK")
+  withr::with_envvar(c(SEATABLER_TEST_TOK = "envtok"), {
+    expect_equal(seatable_token(con), "literal-tok")
+  })
+})
+
 test_that("default connection: registry, options fallback, error", {
   old <- set_default_connection(NULL)
   on.exit(set_default_connection(old))
@@ -64,4 +72,26 @@ test_that("print method redacts and reports token state", {
   expect_match(out, "seatable_connection")
   expect_match(out, "not set")
   expect_false(grepl("abc", out))
+})
+
+test_that("print redacts an embedded token", {
+  con <- seatable_connection("https://x/", token = "supersecret")
+  out <- paste(capture.output(print(con)), collapse = "\n")
+  expect_false(grepl("supersecret", out))
+  expect_match(out, "hidden")
+})
+
+test_that("renviron_set replaces, de-duplicates and appends", {
+  f <- withr::local_tempfile()
+  writeLines(c("FOO=1", "MYTOK='old'", "BAR=2", "MYTOK='dup'"), f)
+  suppressMessages(seatabler:::renviron_set("MYTOK", "new", path = f))
+  ll <- readLines(f)
+  expect_equal(sum(grepl("^MYTOK=", ll)), 1L)          # duplicates collapsed
+  expect_true(any(ll == "MYTOK='new'"))                 # value replaced
+  expect_true(all(c("FOO=1", "BAR=2") %in% ll))         # others untouched
+
+  g <- withr::local_tempfile()
+  writeLines("A=1", g)
+  suppressMessages(seatabler:::renviron_set("B", "2", path = g))
+  expect_true(any(readLines(g) == "B='2'"))             # appended when absent
 })
