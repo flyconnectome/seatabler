@@ -3,9 +3,8 @@
 # Vertical slice ported from fafbseg::flytable_query, generalised to take a
 # connection. The pagination logic is carried over verbatim (it was recently
 # hardened for servers whose per-call SQL row cap is unknown). The pandas -> R
-# conversion here is deliberately minimal; the richer column-type and
-# multi-select handling is marked TODO(port) below and should come from
-# fafbseg's flytable2df / pandas2df / fix_coltypes.
+# conversion is delegated to nat.python::pandas2df, which recovers 64-bit ids as
+# bit64 integers, flattens object columns and turns datetimes into POSIXct.
 
 #' Run a SQL query against a SeaTable server
 #'
@@ -91,7 +90,7 @@ seatable_query <- function(sql, con = default_connection(),
     pd <- reticulate::import("pandas")
     reticulate::py_capture_output(pdd <- reticulate::py_call(pd$DataFrame, ll))
     if (python) return(pdd)
-    df <- seatable_pandas2df(pdd)  # TODO(port): richer flytable2df/fix_coltypes
+    df <- nat.python::pandas2df(pdd)
     fields <- sql2fields(sqltext)
     toorder <- if (length(fields) == 1 && fields == "*")
       intersect(colinfo$name, colnames(df)) else intersect(fields, colnames(df))
@@ -168,35 +167,4 @@ is_rate_limit <- function(pyout) {
                       "(?:http|status|code|error)[^0-9]{0,6}429|",
                       "429[^0-9]{0,6}(?:too many|client error)"),
                paste(pyout, collapse = " "), ignore.case = TRUE, perl = TRUE))
-}
-
-# Minimal pandas DataFrame -> R data.frame conversion.
-# TODO(port): replace with fafbseg's flytable2df + pandas2df + fix_coltypes so
-# that column R-types, list/multi-select columns and NA handling match exactly.
-seatable_pandas2df <- function(pdd) {
-  df <- reticulate::py_to_r(pdd)
-  if (!is.data.frame(df)) df <- as.data.frame(df, stringsAsFactors = FALSE)
-  depython_columns(df)
-}
-
-# Convert any column that survived py_to_r() as a live Python object.
-#
-# py_to_r() on a pandas DataFrame does not always return native R vectors: a
-# column of mixed or object dtype can arrive as a numpy.ndarray, which reaches R
-# as an environment. Those blow up in ordinary R idiom -- `x[is.na(x)] <- ...`
-# on a numpy array raises an IndexError from a wrong-length boolean index --
-# often far from here and with a confusing message. Coerce them once, on the way
-# in, and fall back to NA for anything that will not convert.
-depython_columns <- function(df) {
-  if (!isTRUE(ncol(df) > 0)) return(df)
-  nr <- nrow(df)
-  for (i in seq_along(df)) {
-    if (!is.environment(df[[i]])) next
-    val <- tryCatch(df[[i]]$tolist(), error = function(e) NULL)
-    # tolist() should give one element per row; if it does not (an error, or an
-    # unexpected shape) fall back to NA rather than let the assignment recycle
-    # or error far from here.
-    df[[i]] <- if (length(val) == nr) val else rep(NA_character_, nr)
-  }
-  df
 }
