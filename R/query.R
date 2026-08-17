@@ -3,9 +3,8 @@
 # Vertical slice ported from fafbseg::flytable_query, generalised to take a
 # connection. The pagination logic is carried over verbatim (it was recently
 # hardened for servers whose per-call SQL row cap is unknown). The pandas -> R
-# conversion here is deliberately minimal; the richer column-type and
-# multi-select handling is marked TODO(port) below and should come from
-# fafbseg's flytable2df / pandas2df / fix_coltypes.
+# conversion is delegated to nat.python::pandas2df, which recovers 64-bit ids as
+# bit64 integers, flattens object columns and turns datetimes into POSIXct.
 
 #' Run a SQL query against a SeaTable server
 #'
@@ -24,7 +23,17 @@
 #'   server-specific maximum; pagination returns the full result.
 #' @param chunksize Advanced: force `LIMIT`/`OFFSET` paging in fixed windows of
 #'   this size. The default `NULL` auto-detects the server's per-call cap.
-#' @return An R `data.frame` (or a pandas `DataFrame` when `python = TRUE`).
+#' @param retries Number of times to retry a page that fails because the server
+#'   is rate-limiting us (HTTP 429), with exponential backoff between attempts.
+#'   Long paginated reads are the usual way to hit a quota, and losing the whole
+#'   read to one throttled page is expensive. Set to `0` to fail fast.
+#' @param progress Whether to report each page of a paginated read as it
+#'   arrives. Defaults to `TRUE` in an interactive session. Reading a large
+#'   table takes minutes, and silence is hard to distinguish from a hang.
+#' @return An R `data.frame` (or a pandas `DataFrame` when `python = TRUE`). If
+#'   a paginated read stops early because a page kept failing, the rows read so
+#'   far are returned along with a warning saying where it stopped, rather than
+#'   throwing away a read that may have taken minutes.
 #' @export
 #' @examples
 #' \dontrun{
@@ -34,7 +43,8 @@
 #' }
 seatable_query <- function(sql, con = default_connection(),
                            limit = 100000L, base = NULL, python = FALSE,
-                           convert = TRUE, paginate = TRUE, chunksize = NULL) {
+                           convert = TRUE, paginate = TRUE, chunksize = NULL,
+                           retries = 3L, progress = interactive()) {
   con <- as_connection(con)
   checkmate::assert_character(sql, len = 1, pattern = "select", ignore.case = TRUE)
   res <- stringr::str_match(sql,
@@ -56,18 +66,31 @@ seatable_query <- function(sql, con = default_connection(),
   colinfo <- if (python) NULL else seatable_columns(table, base, con = con)
 
   run_one <- function(sqltext) {
-    pyout <- reticulate::py_capture_output(
-      ll <- try(reticulate::py_call(base$query, sqltext, convert = convert),
-                silent = TRUE))
-    if (inherits(ll, "try-error")) {
-      # TODO(port): fafbseg/bancr detect HTTP 429 rate-limits here and back off.
-      warning(paste("No rows returned by seatable_query:", pyout, collapse = "\n"))
-      return(NULL)
+    # The SDK does the HTTP itself, so a rate limit reaches us only as text on
+    # Python's stderr; sniff for it and back off rather than losing the read.
+    for (attempt in seq_len(max(1L, as.integer(retries) + 1L))) {
+      pyout <- reticulate::py_capture_output(
+        ll <- try(reticulate::py_call(base$query, sqltext, convert = convert),
+                  silent = TRUE))
+      if (!inherits(ll, "try-error")) break
+      if (!is_rate_limit(pyout) || attempt > as.integer(retries)) {
+        msg <- if (is_rate_limit(pyout))
+          paste0("SeaTable is rate-limiting this query (HTTP 429) and ", retries,
+                 " retries did not clear it. Check your quota on the server.\n",
+                 pyout)
+        else paste("No rows returned by seatable_query:", pyout, collapse = "\n")
+        warning(msg)
+        return(NULL)
+      }
+      backoff <- 2^(attempt - 1)
+      message("Rate-limited by SeaTable; retrying in ", backoff, "s (attempt ",
+              attempt, " of ", retries, ").")
+      Sys.sleep(backoff)
     }
     pd <- reticulate::import("pandas")
     reticulate::py_capture_output(pdd <- reticulate::py_call(pd$DataFrame, ll))
     if (python) return(pdd)
-    df <- seatable_pandas2df(pdd)  # TODO(port): richer flytable2df/fix_coltypes
+    df <- nat.python::pandas2df(pdd)
     fields <- sql2fields(sqltext)
     toorder <- if (length(fields) == 1 && fields == "*")
       intersect(colinfo$name, colnames(df)) else intersect(fields, colnames(df))
@@ -101,13 +124,24 @@ seatable_query <- function(sql, con = default_connection(),
     remaining <- limit - offset
     if (remaining < 1) break
     ps <- min(cap, remaining)
+    if (isTRUE(progress)) message("Reading from row ", offset, "...")
     page <- run_one(paste(sql, "LIMIT", ps, "OFFSET", offset))
-    if (is.null(page) || nrow(page) == 0) break
+    # A failed page is not the same as running out of rows. Keep what we have
+    # -- re-reading a large table is expensive -- but say so, because silently
+    # short data is worse than no data.
+    if (is.null(page)) {
+      warning("The read stopped early at row ", offset, ", so this is a ",
+              "partial result: ", offset, " row(s) of up to ", limit,
+              ". Re-run to try again, or raise `retries`.")
+      break
+    }
+    if (nrow(page) == 0) break
     pages[[length(pages) + 1]] <- page
     offset <- offset + nrow(page)
     if (nrow(page) < ps) break
   }
   if (length(pages) == 0) return(NULL)
+  if (isTRUE(progress)) message("Read ", offset, " rows.")
   out <- if (length(pages) == 1) pages[[1]] else {
     tt <- try(do.call(rbind, pages), silent = TRUE)
     if (inherits(tt, "try-error")) tt <- dplyr::bind_rows(pages)
@@ -124,11 +158,13 @@ sql2fields <- function(sql) {
   trimws(scan(text = fieldstring, sep = ",", what = "", quiet = TRUE))
 }
 
-# Minimal pandas DataFrame -> R data.frame conversion.
-# TODO(port): replace with fafbseg's flytable2df + pandas2df + fix_coltypes so
-# that column R-types, list/multi-select columns and NA handling match exactly.
-seatable_pandas2df <- function(pdd) {
-  df <- reticulate::py_to_r(pdd)
-  if (!is.data.frame(df)) df <- as.data.frame(df, stringsAsFactors = FALSE)
-  df
+# Does this Python traceback look like a rate limit rather than a real error?
+# A bare "429" is too weak -- it turns up in ids, counts and unrelated codes --
+# so it only counts when it sits next to a status word or the "too many
+# requests" phrase requests uses; "rate limit" on its own is unambiguous.
+is_rate_limit <- function(pyout) {
+  isTRUE(grepl(paste0("too many requests|rate.?limit|",
+                      "(?:http|status|code|error)[^0-9]{0,6}429|",
+                      "429[^0-9]{0,6}(?:too many|client error)"),
+               paste(pyout, collapse = " "), ignore.case = TRUE, perl = TRUE))
 }

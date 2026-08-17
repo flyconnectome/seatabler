@@ -12,7 +12,9 @@ seatable_query(
   python = FALSE,
   convert = TRUE,
   paginate = TRUE,
-  chunksize = NULL
+  chunksize = NULL,
+  retries = 3L,
+  progress = interactive()
 )
 }
 \arguments{
@@ -38,9 +40,21 @@ server-specific maximum; pagination returns the full result.}
 
 \item{chunksize}{Advanced: force \code{LIMIT}/\code{OFFSET} paging in fixed windows of
 this size. The default \code{NULL} auto-detects the server's per-call cap.}
+
+\item{retries}{Number of times to retry a page that fails because the server
+is rate-limiting us (HTTP 429), with exponential backoff between attempts.
+Long paginated reads are the usual way to hit a quota, and losing the whole
+read to one throttled page is expensive. Set to \code{0} to fail fast.}
+
+\item{progress}{Whether to report each page of a paginated read as it
+arrives. Defaults to \code{TRUE} in an interactive session. Reading a large
+table takes minutes, and silence is hard to distinguish from a hang.}
 }
 \value{
-An R \code{data.frame} (or a pandas \code{DataFrame} when \code{python = TRUE}).
+An R \code{data.frame} (or a pandas \code{DataFrame} when \code{python = TRUE}). If
+a paginated read stops early because a page kept failing, the rows read so
+far are returned along with a warning saying where it stopped, rather than
+throwing away a read that may have taken minutes.
 }
 \description{
 Run a SQL query against a SeaTable server
