@@ -25,6 +25,7 @@ Encoding: UTF-8
 Language: en-GB
 Imports:
     reticulate,
+    nat.python,
     checkmate,
     stringr,
     dplyr,
@@ -35,6 +36,8 @@ Suggests:
     testthat (>= 3.0.0),
     withr,
     httr2
+Remotes:
+    flyconnectome/nat.python
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/flyconnectome/seatabler
