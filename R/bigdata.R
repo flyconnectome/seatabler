@@ -51,8 +51,8 @@ seatable_archive_rows <- function(table, view_name = NULL, view_id = NULL,
          "the rows of a view, and no longer accepts a WHERE clause.")
   body <- list(table_name = table)
   if (!is.null(view_name)) body$view_name <- view_name else body$view_id <- view_id
-  invisible(seatable_base_rest("archive-view/", base = base, con = con,
-                               method = "POST", body = body))
+  invisible(seatable_base_rest("archive-view/", base = base, table = table,
+                               con = con, method = "POST", body = body))
 }
 
 #' @rdname seatable_archive_rows
@@ -63,6 +63,6 @@ seatable_unarchive_rows <- function(table, row_ids, base = NULL,
   if (!length(row_ids)) stop("`row_ids` is empty: nothing to unarchive.")
   # The endpoint calls this field table_id, but takes the table name.
   body <- list(table_id = table, row_ids = as.list(as.character(row_ids)))
-  invisible(seatable_base_rest("unarchive/", base = base, con = con,
-                               method = "POST", body = body))
+  invisible(seatable_base_rest("unarchive/", base = base, table = table,
+                               con = con, method = "POST", body = body))
 }

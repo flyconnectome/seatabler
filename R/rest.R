@@ -70,14 +70,17 @@ seatable_rest <- function(path, con = default_connection(), method = NULL,
 }
 
 #' @rdname seatable_rest
-#' @param base A `Base` object from [seatable_base()], or a base name.
+#' @param base A `Base` object from [seatable_base()], or a base name. When
+#'   `NULL`, the base is discovered from `table`.
+#' @param table Name of a table whose base to use, when `base` is not a `Base`
+#'   object. Lets callers reach a base endpoint given only a table name.
 #' @export
-seatable_base_rest <- function(path, base, con = default_connection(),
+seatable_base_rest <- function(path, base = NULL, con = default_connection(),
                                method = NULL, body = NULL, query = NULL,
-                               retries = 3L, parse = TRUE) {
+                               table = NULL, retries = 3L, parse = TRUE) {
   con <- as_connection(con)
   if (is.character(base) || is.null(base))
-    base <- seatable_base(base_name = base, con = con)
+    base <- seatable_base(base_name = base, table = table, con = con)
   # The gateway wants the bare host, and the base's own JWT rather than the
   # account token; the JWT is minted when the Base object is created.
   server <- sub("/+$", "", sub("^https?://", "", base$server_url))
@@ -126,8 +129,11 @@ seatable_http_error <- function(resp, status) {
   msg <- tryCatch({
     if (grepl("json", httr2::resp_content_type(resp), fixed = TRUE)) {
       content <- httr2::resp_body_json(resp)
-      content$error_message %||% content$error_msg %||% content$detail %||%
-        httr2::resp_body_string(resp)
+      msg <- content$error_message
+      if (is.null(msg)) msg <- content$error_msg
+      if (is.null(msg)) msg <- content$detail
+      if (is.null(msg)) msg <- httr2::resp_body_string(resp)
+      msg
     } else {
       # A wrong URL gets SeaTable's HTML error page rather than JSON, and
       # pasting a whole web page into the console buries the actual problem.
@@ -157,5 +163,3 @@ abbreviate_body <- function(txt, max_chars = 300L) {
     txt <- paste0(substr(txt, 1L, max_chars), "... [truncated]")
   txt
 }
-
-`%||%` <- function(x, y) if (is.null(x)) y else x

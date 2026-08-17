@@ -17,11 +17,12 @@ seatable_rest(
 
 seatable_base_rest(
   path,
-  base,
+  base = NULL,
   con = default_connection(),
   method = NULL,
   body = NULL,
   query = NULL,
+  table = NULL,
   retries = 3L,
   parse = TRUE
 )
@@ -44,7 +45,11 @@ supplied.}
 \item{parse}{Whether to parse the JSON response (default) or return the raw
 \code{httr2} response object.}
 
-\item{base}{A \code{Base} object from \code{\link[=seatable_base]{seatable_base()}}, or a base name.}
+\item{base}{A \code{Base} object from \code{\link[=seatable_base]{seatable_base()}}, or a base name. When
+\code{NULL}, the base is discovered from \code{table}.}
+
+\item{table}{Name of a table whose base to use, when \code{base} is not a \code{Base}
+object. Lets callers reach a base endpoint given only a table name.}
 }
 \value{
 The parsed JSON response as an R list, or an \code{httr2_response} when

@@ -160,9 +160,14 @@ sql2fields <- function(sql) {
 }
 
 # Does this Python traceback look like a rate limit rather than a real error?
+# A bare "429" is too weak -- it turns up in ids, counts and unrelated codes --
+# so it only counts when it sits next to a status word or the "too many
+# requests" phrase requests uses; "rate limit" on its own is unambiguous.
 is_rate_limit <- function(pyout) {
-  isTRUE(grepl("429|too many requests|rate.?limit", paste(pyout, collapse = " "),
-               ignore.case = TRUE))
+  isTRUE(grepl(paste0("too many requests|rate.?limit|",
+                      "(?:http|status|code|error)[^0-9]{0,6}429|",
+                      "429[^0-9]{0,6}(?:too many|client error)"),
+               paste(pyout, collapse = " "), ignore.case = TRUE, perl = TRUE))
 }
 
 # Minimal pandas DataFrame -> R data.frame conversion.
@@ -187,8 +192,11 @@ depython_columns <- function(df) {
   nr <- nrow(df)
   for (i in seq_along(df)) {
     if (!is.environment(df[[i]])) next
-    df[[i]] <- tryCatch(df[[i]]$tolist(),
-                        error = function(e) rep(NA_character_, nr))
+    val <- tryCatch(df[[i]]$tolist(), error = function(e) NULL)
+    # tolist() should give one element per row; if it does not (an error, or an
+    # unexpected shape) fall back to NA rather than let the assignment recycle
+    # or error far from here.
+    df[[i]] <- if (length(val) == nr) val else rep(NA_character_, nr)
   }
   df
 }

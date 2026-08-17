@@ -126,11 +126,23 @@ seatable_delete_column <- function(table, column_key, base = NULL,
 # use convert = FALSE, or reticulate coerces the member back to its `.value`
 # string on the way out and the SDK fails with
 # "'str' object has no attribute 'value'".
+# Import (and cache) seatable_api.constants once per session rather than on
+# every call: seatable_add_columns() resolves a type per column in a loop, and
+# reticulate::import is not free.
+seatable_constants <- local({
+  cached <- NULL
+  function() {
+    if (is.null(cached))
+      cached <<- reticulate::import("seatable_api.constants",
+                                    delay_load = FALSE, convert = FALSE)
+    cached
+  }
+})
+
 seatable_column_type <- function(column_type) {
   if (inherits(column_type, "python.builtin.object")) return(column_type)
   type_str <- as.character(column_type)[1]
-  constants <- reticulate::import("seatable_api.constants", delay_load = FALSE,
-                                  convert = FALSE)
+  constants <- seatable_constants()
   tryCatch(constants$ColumnTypes(type_str), error = function(e)
     stop("Unknown SeaTable column type '", type_str, "'. Common types are ",
          "text, long-text, number, date, checkbox, single-select and ",
