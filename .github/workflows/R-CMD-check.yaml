@@ -17,6 +17,9 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      # Token for the live flytable testfruit test (test-flytable-live.R). When
+      # the secret is unset the test skips itself, so forks without it still pass.
+      FLYTABLE_TOKEN: ${{ secrets.FLYTABLE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
