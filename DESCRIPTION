@@ -31,11 +31,15 @@ Imports:
     dplyr,
     memoise,
     cachem,
+    bit64,
+    jsonlite,
+    stats,
     utils
 Suggests:
     testthat (>= 3.0.0),
     withr,
-    httr2
+    httr2,
+    pbapply
 Remotes:
     flyconnectome/nat.python
 Config/testthat/edition: 3
