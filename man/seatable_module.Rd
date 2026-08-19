@@ -10,31 +10,17 @@ seatable_module()
 The imported \code{seatable_api} module.
 }
 \description{
-Imports the \code{seatable_api} Python module via reticulate, on which
-every other seatabler function relies. seatabler does \strong{not} manage Python
-environments itself; instead it declares the requirement and, on a failed
-import, tries in order: (1) a consumer-registered provisioner (see details),
-(2) an interactive \code{reticulate::py_install()} into the environment
-reticulate is already using, before finally erroring with guidance.
-Memoised, so the import cost is paid once per session.
+Imports the \code{seatable_api} Python module, on which every other
+seatabler function relies. The result is cached for the session.
 }
 \details{
-\strong{Ecosystem integration without a dependency.} A package that
-manages its own Python environment (e.g. fafbseg, via \code{simple_python()}) can
-register a provisioner so seatabler installs \code{seatable_api} into \emph{that}
-environment rather than guessing. Register a zero-argument function via the
-\code{seatabler.python_provisioner} option — typically in the consumer's
-\code{.onLoad()}:
-
-\preformatted{
-  # in fafbseg .onLoad():
-  options(seatabler.python_provisioner = function()
-    fafbseg::simple_python(pkgs = "seatable_api"))
-  }
-
-Because fafbseg depends on seatabler (not the other way round) it can set
-this hook, giving seatabler access to \code{simple_python} without seatabler
-depending on fafbseg. Standalone users need no hook — they get the
-interactive \code{py_install()} fallback, or can install \code{seatable_api}
-themselves.
+seatabler depends on nat.python for Python environment management, so
+\code{seatable_module()} is a thin wrapper over
+\code{\link[nat.python:check_module]{nat.python::check_module()}}\code{("seatable_api")}. That checks whether the
+module is installed (from distribution metadata, without importing), imports
+it, and on absence either offers to install it — interactively, via
+\code{\link[nat.python:simple_python]{nat.python::simple_python()}} into the managed natverse Python environment —
+or errors with guidance. To set Python up in one step beforehand
+(recommended), run \code{nat.python::simple_python("basic")}, which installs
+\code{seatable_api} alongside the other natverse Python packages.
 }

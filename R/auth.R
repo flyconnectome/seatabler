@@ -1,84 +1,32 @@
 # Authentication / Python SDK bootstrap.
 #
 # seatabler talks to SeaTable via the official `seatable_api` Python package
-# through reticulate. Python-environment *management* is deliberately out of
-# scope (that belongs in a consumer such as fafbseg::simple_python). Here we only
-# import the package and give install guidance if it is missing.
+# through reticulate. Python-environment management is delegated to nat.python
+# (check_module / simple_python); here we obtain the module through that gate and
+# authenticate.
 
 #' Import the seatable_api Python module
 #'
-#' @description Imports the `seatable_api` Python module via reticulate, on which
-#'   every other seatabler function relies. seatabler does **not** manage Python
-#'   environments itself; instead it declares the requirement and, on a failed
-#'   import, tries in order: (1) a consumer-registered provisioner (see details),
-#'   (2) an interactive `reticulate::py_install()` into the environment
-#'   reticulate is already using, before finally erroring with guidance.
-#'   Memoised, so the import cost is paid once per session.
+#' @description Imports the `seatable_api` Python module, on which every other
+#'   seatabler function relies. The result is cached for the session.
 #'
-#' @details **Ecosystem integration without a dependency.** A package that
-#'   manages its own Python environment (e.g. fafbseg, via `simple_python()`) can
-#'   register a provisioner so seatabler installs `seatable_api` into *that*
-#'   environment rather than guessing. Register a zero-argument function via the
-#'   `seatabler.python_provisioner` option — typically in the consumer's
-#'   `.onLoad()`:
-#'
-#'   \preformatted{
-#'   # in fafbseg .onLoad():
-#'   options(seatabler.python_provisioner = function()
-#'     fafbseg::simple_python(pkgs = "seatable_api"))
-#'   }
-#'
-#'   Because fafbseg depends on seatabler (not the other way round) it can set
-#'   this hook, giving seatabler access to `simple_python` without seatabler
-#'   depending on fafbseg. Standalone users need no hook — they get the
-#'   interactive `py_install()` fallback, or can install `seatable_api`
-#'   themselves.
+#' @details seatabler depends on nat.python for Python environment management, so
+#'   `seatable_module()` is a thin wrapper over
+#'   [nat.python::check_module()]`("seatable_api")`. That checks whether the
+#'   module is installed (from distribution metadata, without importing), imports
+#'   it, and on absence either offers to install it — interactively, via
+#'   [nat.python::simple_python()] into the managed natverse Python environment —
+#'   or errors with guidance. To set Python up in one step beforehand
+#'   (recommended), run `nat.python::simple_python("basic")`, which installs
+#'   `seatable_api` alongside the other natverse Python packages.
 #'
 #' @return The imported `seatable_api` module.
 #' @export
-seatable_module <- local({
-  memoised <- NULL
-  function() {
-    if (!is.null(memoised)) return(memoised)
-    if (!requireNamespace("reticulate", quietly = TRUE))
-      stop("The 'reticulate' package is required to use seatabler.")
-    import_st <- function() tryCatch(reticulate::import("seatable_api"),
-                                     error = function(e) NULL)
-    st <- import_st()
-
-    # 1. Consumer-registered provisioner (e.g. fafbseg's simple_python), so the
-    #    package lands in whatever env that consumer manages.
-    if (is.null(st)) {
-      prov <- getOption("seatabler.python_provisioner")
-      if (is.function(prov)) {
-        try(prov(), silent = TRUE)
-        st <- import_st()
-      }
-    }
-
-    # 2. Interactive fallback: install into the env reticulate is already bound
-    #    to. Only with consent, since it mutates the user's Python environment.
-    if (is.null(st) && interactive()) {
-      ans <- readline("Install the Python 'seatable_api' package now (y/n)? ")
-      if (tolower(trimws(ans)) %in% c("y", "yes")) {
-        try(reticulate::py_install("seatable_api"), silent = TRUE)
-        st <- import_st()
-      }
-    }
-
-    if (is.null(st))
-      stop(call. = FALSE,
-           "Could not import the Python 'seatable_api' package.\n",
-           "Install it into the Python environment reticulate is using, e.g.\n",
-           "  reticulate::py_install('seatable_api')\n",
-           "or, if you use fafbseg, fafbseg::simple_python(pkgs = 'seatable_api').\n",
-           "Packages that manage their own Python env can also register a ",
-           "provisioner via options(seatabler.python_provisioner = ...); ",
-           "see ?seatable_module.")
-    memoised <<- st
-    st
-  }
-})
+seatable_module <- function() {
+  nat.python::check_module(
+    "seatable_api",
+    docs_url = "https://seatable.github.io/seatable-scripts/python/")
+}
 
 #' Authenticate with a SeaTable server
 #'
