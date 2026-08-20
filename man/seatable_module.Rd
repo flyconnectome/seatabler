@@ -16,11 +16,16 @@ seatabler function relies. The result is cached for the session.
 \details{
 seatabler depends on nat.python for Python environment management, so
 \code{seatable_module()} is a thin wrapper over
-\code{\link[nat.python:check_module]{nat.python::check_module()}}\code{("seatable_api")}. That checks whether the
-module is installed (from distribution metadata, without importing), imports
-it, and on absence either offers to install it — interactively, via
+\code{\link[nat.python:check_module]{nat.python::check_module()}}. That checks whether each module is installed
+(from distribution metadata, without importing), imports it, and on absence
+either offers to install it — interactively, via
 \code{\link[nat.python:simple_python]{nat.python::simple_python()}} into the managed natverse Python environment —
-or errors with guidance. To set Python up in one step beforehand
-(recommended), run \code{nat.python::simple_python("basic")}, which installs
-\code{seatable_api} alongside the other natverse Python packages.
+or errors with guidance. Both \code{seatable_api} and \code{pandas} are ensured:
+seatabler moves pandas \code{DataFrame}s around directly and converts them with
+\code{\link[nat.python:pandas2df]{nat.python::pandas2df()}}, but \code{seatable_api} does not itself depend on
+pandas, so a \code{seatable_api}-only install would fail at the first pandas
+import. To set Python up in one step beforehand, run
+\code{nat.python::simple_python("none", pkgs = c("seatable_api", "pandas"))} (or
+\code{nat.python::simple_python("basic")} if you also want the wider natverse
+Python stack); either installs everything seatabler needs.
 }
