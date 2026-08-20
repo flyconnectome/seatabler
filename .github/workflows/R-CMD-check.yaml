@@ -1,6 +1,8 @@
 # Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# Single-platform (Ubuntu) R CMD check, including the testthat suite. Python and
-# the seatable_api module are installed so reticulate-backed code can load.
+# Single-platform (Ubuntu) R CMD check, including the testthat suite. Python is
+# provisioned through nat.python::simple_python() -- the same entry point end
+# users are pointed at -- so CI exercises the real user-facing install path
+# rather than a bespoke pip line.
 on:
   push:
     branches: [main, master]
@@ -25,14 +27,15 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          # Pin to a version with stable seatable_api / pandas wheels (3.14 has
+          # no pandas wheel yet, forcing a slow/failing source build).
+          python-version: '3.12'
 
-      - name: Install seatable_api and point reticulate at this Python
+      - name: Point reticulate at this Python
         shell: bash
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install seatable_api
-          echo "RETICULATE_PYTHON=$(which python)" >> "$GITHUB_ENV"
+        # simple_python(miniconda = FALSE) installs into whatever RETICULATE_PYTHON
+        # names, so set it here (persists to every later step, R check included).
+        run: echo "RETICULATE_PYTHON=$(which python)" >> "$GITHUB_ENV"
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -42,6 +45,15 @@ jobs:
         with:
           extra-packages: any::rcmdcheck
           needs: check
+
+      - name: Provision Python packages via nat.python (the user-facing path)
+        # Same call seatable_module()'s auto-installer makes, but non-interactive:
+        # ensures seatable_api AND pandas (seatable_api does not pull pandas in).
+        # Runs after setup-r-dependencies so nat.python is already installed.
+        shell: Rscript {0}
+        run: |
+          nat.python::simple_python(
+            "none", pkgs = c("seatable_api", "pandas"), miniconda = FALSE)
 
       - uses: r-lib/actions/check-r-package@v2
         with:

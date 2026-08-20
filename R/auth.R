@@ -12,17 +12,26 @@
 #'
 #' @details seatabler depends on nat.python for Python environment management, so
 #'   `seatable_module()` is a thin wrapper over
-#'   [nat.python::check_module()]`("seatable_api")`. That checks whether the
-#'   module is installed (from distribution metadata, without importing), imports
-#'   it, and on absence either offers to install it — interactively, via
+#'   [nat.python::check_module()]. That checks whether each module is installed
+#'   (from distribution metadata, without importing), imports it, and on absence
+#'   either offers to install it — interactively, via
 #'   [nat.python::simple_python()] into the managed natverse Python environment —
-#'   or errors with guidance. To set Python up in one step beforehand
-#'   (recommended), run `nat.python::simple_python("basic")`, which installs
-#'   `seatable_api` alongside the other natverse Python packages.
+#'   or errors with guidance. Both `seatable_api` and `pandas` are ensured:
+#'   seatabler moves pandas `DataFrame`s around directly and converts them with
+#'   [nat.python::pandas2df()], but `seatable_api` does not itself depend on
+#'   pandas, so a `seatable_api`-only install would fail at the first pandas
+#'   import. To set Python up in one step beforehand, run
+#'   `nat.python::simple_python("none", pkgs = c("seatable_api", "pandas"))` (or
+#'   `nat.python::simple_python("basic")` if you also want the wider natverse
+#'   Python stack); either installs everything seatabler needs.
 #'
 #' @return The imported `seatable_api` module.
 #' @export
 seatable_module <- function() {
+  # seatable_api does not depend on pandas, but seatabler converts pandas frames
+  # everywhere (queries, list_rows, append) and via nat.python::pandas2df, so a
+  # bare seatable_api install fails at the first import("pandas"): ensure both.
+  nat.python::check_module("pandas")
   nat.python::check_module(
     "seatable_api",
     docs_url = "https://seatable.github.io/seatable-scripts/python/")
