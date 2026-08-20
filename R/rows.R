@@ -172,6 +172,44 @@ seatable_append_rows <- function(df, table, base = NULL,
   invisible(isTRUE(res$success))
 }
 
+#' Delete rows from a SeaTable table
+#'
+#' @description Deletes rows by their SeaTable `_id`. Defaults to a dry run that
+#'   returns the ids it *would* delete without touching the server, so you can
+#'   check the selection first.
+#'
+#' @param ids A character vector of row `_id`s, or a data.frame with an `_id`
+#'   column (as returned by [seatable_query()]). Duplicates are ignored.
+#' @param table Name of the table.
+#' @param base Optional base name or `Base` object; discovered from `table` when
+#'   `NULL`.
+#' @param con A [seatable_connection].
+#' @param DryRun When `TRUE` (the default) no rows are deleted; the ids that
+#'   would be deleted are returned. Pass `FALSE` to actually delete.
+#'
+#' @return With `DryRun = TRUE`, the character vector of ids. With
+#'   `DryRun = FALSE`, the number of rows the server reports as deleted (a
+#'   warning is raised if that is fewer than requested).
+#' @seealso [seatable_query()], [seatable_update_rows()]
+#' @export
+seatable_delete_rows <- function(ids, table, base = NULL,
+                                 con = default_connection(), DryRun = TRUE) {
+  con <- as_connection(con)
+  if (is.data.frame(ids)) ids <- ids[["_id"]]
+  ids <- unique(ids)
+  if (!isTRUE(length(ids) > 0)) stop("No ids to delete.")
+  # Return before touching the server, so a dry run is offline and inspectable.
+  if (!isFALSE(DryRun)) return(ids)
+  if (is.null(base) || is.character(base))
+    base <- seatable_base(base_name = base, table = table, con = con)
+  pyids <- reticulate::r_to_py(as.list(ids))
+  res <- base$batch_delete_rows(table_name = table, row_ids = pyids)
+  ndeleted <- unlist(res)
+  if (!isTRUE(ndeleted == length(ids)))
+    warning("Only ", ndeleted, " of ", length(ids), " rows were deleted.")
+  ndeleted
+}
+
 # private: convert a data.frame into the shape Base.batch_update_rows wants.
 # via_json (or any multi-select column) forces per-row JSON assembly: slower on
 # huge inputs but the only way a multi-select cell serialises as a real JSON
