@@ -25,7 +25,8 @@ seatabler moves pandas \code{DataFrame}s around directly and converts them with
 \code{\link[nat.python:pandas2df]{nat.python::pandas2df()}}, but \code{seatable_api} does not itself depend on
 pandas, so a \code{seatable_api}-only install would fail at the first pandas
 import. To set Python up in one step beforehand, run
-\code{nat.python::simple_python("none", pkgs = c("seatable_api", "pandas"))} (or
+\code{nat.python::simple_python("minimal", pkgs = "seatable_api")} — the
+\code{"minimal"} bundle installs pandas and \code{pkgs} adds \code{seatable_api} — or
 \code{nat.python::simple_python("basic")} if you also want the wider natverse
-Python stack); either installs everything seatabler needs.
+Python stack.
 }

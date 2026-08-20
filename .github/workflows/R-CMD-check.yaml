@@ -31,12 +31,6 @@ jobs:
           # no pandas wheel yet, forcing a slow/failing source build).
           python-version: '3.12'
 
-      - name: Point reticulate at this Python
-        shell: bash
-        # simple_python(miniconda = FALSE) installs into whatever RETICULATE_PYTHON
-        # names, so set it here (persists to every later step, R check included).
-        run: echo "RETICULATE_PYTHON=$(which python)" >> "$GITHUB_ENV"
-
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
@@ -47,13 +41,23 @@ jobs:
           needs: check
 
       - name: Provision Python packages via nat.python (the user-facing path)
-        # Same call seatable_module()'s auto-installer makes, but non-interactive:
-        # ensures seatable_api AND pandas (seatable_api does not pull pandas in).
-        # Runs after setup-r-dependencies so nat.python is already installed.
+        # The "minimal" bundle installs pandas (nat.python's baseline, needed by
+        # pandas2df); pkgs adds seatable_api on top -- exactly what seatabler
+        # needs, via the entry point end users are pointed at. Runs after
+        # setup-r-dependencies so nat.python is installed.
+        #
+        # simple_python(miniconda = FALSE) installs into reticulate's managed
+        # `r-reticulate` virtualenv, NOT an arbitrary RETICULATE_PYTHON. So leave
+        # RETICULATE_PYTHON unset here, then pin it to that venv for the check
+        # step -- otherwise the live tests run against a Python without
+        # seatable_api and silently skip.
         shell: Rscript {0}
         run: |
-          nat.python::simple_python(
-            "none", pkgs = c("seatable_api", "pandas"), miniconda = FALSE)
+          nat.python::simple_python("minimal", pkgs = "seatable_api",
+                                    miniconda = FALSE)
+          venv <- reticulate::virtualenv_python("r-reticulate")
+          cat(sprintf("RETICULATE_PYTHON=%s\n", venv),
+              file = Sys.getenv("GITHUB_ENV"), append = TRUE)
 
       - uses: r-lib/actions/check-r-package@v2
         with:
