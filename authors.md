@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/flyconnectome/seatabler/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/flyconnectome/seatabler/blob/v0.2.0/DESCRIPTION)
 
 Jefferis G (2026). *seatabler: Generic R Client for SeaTable Servers*. R
 package version 0.2.0, <https://github.com/flyconnectome/seatabler>.
