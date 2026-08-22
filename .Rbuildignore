@@ -6,3 +6,8 @@
 ^LICENSE\.md$
 ^\.claude$
 ^CLAUDE\.md$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^seatabler-plan-comments\.md$
+^seatabler-porting-gaps\.md$

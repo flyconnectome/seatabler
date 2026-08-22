@@ -1,7 +1,7 @@
 Package: seatabler
 Type: Package
 Title: Generic R Client for SeaTable Servers
-Version: 0.0.0.9000
+Version: 0.2.0
 Authors@R: c(
     person(given = "Gregory",
            family = "Jefferis",

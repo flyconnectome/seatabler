@@ -1,0 +1,63 @@
+url: https://flyconnectome.github.io/seatabler/
+
+template:
+  bootstrap: 5
+
+reference:
+- title: Package
+  contents:
+  - seatabler-package
+
+- title: Connections
+  desc: Configure and resolve the server connection (URL + token + workspace).
+  contents:
+  - seatable_connection
+  - default_connection
+  - set_default_connection
+  - with_connection
+  - seatable_token
+
+- title: Authentication
+  desc: Import the Python SDK and obtain / mint API tokens.
+  contents:
+  - seatable_module
+  - seatable_login
+
+- title: Bases, workspaces and tables
+  contents:
+  - seatable_base
+  - seatable_workspaces
+  - seatable_workspace_id
+  - seatable_alltables
+
+- title: Querying and reading rows
+  contents:
+  - seatable_query
+  - seatable_list_rows
+  - seatable_list_selected
+
+- title: Writing rows
+  desc: Batch append / update / delete, with big-data batching.
+  contents:
+  - seatable_update_rows
+  - seatable_delete_rows
+
+- title: Big-data archive
+  contents:
+  - seatable_archive_rows
+
+- title: Columns and schema
+  contents:
+  - seatable_columns
+  - seatable_add_column
+  - seatable_delete_column
+  - seatable_select_options
+
+- title: Snapshots
+  contents:
+  - seatable_snapshots
+
+- title: REST transport
+  desc: Low-level api-gateway helpers behind the big-data and snapshot functions.
+  contents:
+  - seatable_rest
