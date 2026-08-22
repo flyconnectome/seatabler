@@ -175,8 +175,9 @@ best contributed by bancr when it migrates:
 > **Status (2026-08-11, ASB).** Items 1–7 below have now been contributed from
 > bancr, in `R/rest.R`, `R/schema.R`, `R/bigdata.R`, `R/snapshots.R` and
 > `R/query.R`; item 5 was already present in `R/columns.R`. They are additive —
-> nothing in Phases 1–4 depends on them, and the `TODO(port)` markers in
-> `R/query.R` are untouched. Two deliberate departures from the sketch below:
+> nothing in Phases 1–4 depends on them. (The former `TODO(port)` coercion
+> markers have since been resolved by delegating to `nat.python::pandas2df()`.)
+> Two deliberate departures from the sketch below:
 > the REST helper uses `httr2` rather than `httr`, since bancr's api-gateway
 > code was already written against it; and only snapshot *listing* is wrapped,
 > because restoring is destructive and better done in the UI, which confirms
@@ -202,7 +203,9 @@ best contributed by bancr when it migrates:
 6. **Rate-limit (429) handling + retry/backoff** in the query path — a robustness
    improvement to fold into `seatable_query`.
 7. **Read-side coercion of numpy/py-object columns** — extra guards for columns
-   that come back as numpy arrays / Python objects.
+   that come back as numpy arrays / Python objects. *Delivered:* now handled by
+   `nat.python::pandas2df()` (see §5a), which replaced seatabler's minimal
+   in-package converter.
 
 **Multi-select note:** both fafbseg and bancr handle multi-select columns.
 fafbseg's implementation is the more complete one (it validates values against
@@ -213,35 +216,46 @@ variant.
 
 ---
 
-## 5a. Python provisioning without depending on fafbseg
+## 5a. Python provisioning via nat.python (not fafbseg)
 
-`seatabler` must not depend on `fafbseg`, yet fafbseg manages the shared Python
-environment for the whole ecosystem via `simple_python()`. Resolved by
-**dependency inversion**:
+seatabler depends on **`nat.python`** (`flyconnectome/nat.python`; `Imports` +
+`Remotes`) for *both* Python concerns:
 
-- `seatabler` declares the *requirement* and defines an *extension point*. Its
-  `check_seatable()` tries to import `seatable_api`; on failure it (1) calls a
-  consumer-registered provisioner if present, (2) offers an interactive
-  `reticulate::py_install()` into the env reticulate already uses, then (3)
-  errors with guidance.
-- The extension point is the `seatabler.python_provisioner` option — a
-  zero-argument function. Because **fafbseg depends on seatabler** (not the
-  reverse), fafbseg registers it in its own `.onLoad()`:
+- **pandas → R conversion + module introspection.** `seatable_query()` hands the
+  pandas `DataFrame` to `nat.python::pandas2df()`, which recovers 64-bit ids as
+  `bit64`, flattens object/numpy columns and coerces datetimes — the read-side
+  coercion this plan once listed as a seatabler TODO (§5, item 7).
+- **Environment provisioning.** nat.python owns the *environment engine* — the
+  mechanics extracted from fafbseg's `simple_python()` (managed miniconda,
+  reticulate env selection, package install) minus fafbseg's opinionated package
+  bundles. seatabler ensures `seatable_api` is present by calling that engine
+  directly.
 
-  ```r
-  # fafbseg .onLoad():
-  options(seatabler.python_provisioner = function()
-    fafbseg::simple_python(pkgs = "seatable_api"))
-  ```
+**Why nat.python is an acceptable dependency where fafbseg was not.** The
+original concern was that fafbseg manages the shared Python environment via
+`simple_python()`, yet seatabler must not depend on fafbseg — for two
+independent reasons: fafbseg is heavy, and **fafbseg depends on seatabler**, so
+`seatabler → fafbseg` would be a dependency cycle. nat.python has neither
+problem: it is a lightweight, cycle-free utility (core deps ~`reticulate` +
+`bit64`). So seatabler simply depends on it for provisioning and conversion
+alike.
 
-  So seatabler gets `simple_python`'s environment management for fafbseg users,
-  with zero dependency on fafbseg. Standalone users need no hook (they get the
-  `py_install()` fallback). fafbseg should also add `seatable_api` to
-  `simple_python`'s standard package set so it is simply present in the managed
-  env.
+**This retires the inversion-of-control hook.** Earlier drafts avoided the
+fafbseg dependency with a `seatabler.python_provisioner` option that fafbseg
+registered `simple_python` into. With nat.python as a direct dependency that
+dance is unnecessary: seatabler calls nat.python's env engine to install
+`seatable_api`, and fafbseg users, standalone users and CI share one code path.
 
-This same hook pattern is the general mechanism for any future ecosystem
-integration seatabler needs from a consumer.
+**Status / sequencing — DONE (2026-08-21).** Both concerns now route through
+nat.python directly; the inversion-of-control hook has been removed entirely.
+`seatable_module()` (`R/auth.R`) calls `nat.python::check_module()` for both
+`pandas` and `seatable_api` — no `seatabler.python_provisioner` option, no
+interim `reticulate::py_install` step. Provisioning in one shot is
+`nat.python::simple_python("minimal", pkgs = "seatable_api")` (the `"minimal"`
+bundle installs pandas — nat.python's own baseline — and `pkgs` adds
+`seatable_api`). CI provisions through exactly this path (see
+`.github/workflows/R-CMD-check.yaml`), so fafbseg users, standalone users and CI
+share one code path.
 
 ## 6. Backward compatibility (hard constraint)
 
@@ -284,16 +298,19 @@ a `cachem` dependency.
 
 ## 8. Phased plan (with ownership)
 
-- **Phase 0 — connection contract (design).** Finalise `seatable_connection()`
-  and default-resolution. Agree with Alex, since it fixes every signature. *(This
-  skeleton implements an initial version for discussion.)*
-- **Phase 1 — seatabler core.** Port Bucket A from fafbseg only (no bancr
-  extras). Prove the connection model with a single `seatable_query()` end to
-  end against **both** a Cambridge server and `cloud.seatable.io` before porting
-  the rest.
-- **Phase 2 — re-point fafbseg.** `flytable_*` generics become thin wrappers
-  (§6). Domain functions stay and call `seatabler` internally. Acceptance gate:
-  aedes unchanged.
+- **Phase 0 — connection contract (design). ✅ DONE.** `seatable_connection()`
+  and default-resolution implemented and in use.
+- **Phase 1 — seatabler core. ✅ DONE.** Bucket A ported from fafbseg (no bancr
+  extras): connection/auth, `seatable_query` (paginated), `seatable_columns`
+  (+ add/delete/select-options), the read generics `seatable_list_rows` /
+  `seatable_list_selected`, the row writes `seatable_update_rows` /
+  `seatable_append_rows` / `seatable_delete_rows`, big-data
+  archive/unarchive, snapshots, and the REST/JWT transport. Read-side coercion
+  is delegated to `nat.python::pandas2df()`. Live tests pass in CI (SKIP 0).
+- **Phase 2 — re-point fafbseg. ⏳ NEXT.** `flytable_*` generics become thin
+  wrappers (§6). Domain functions stay and call `seatabler` internally.
+  Acceptance gate: aedes unchanged (snapshot `formals()` of the six generics
+  before/after).
 - **Phase 3 — aedes.** Expected zero code changes; optionally give aedes its own
   clean connection for `aedes_main`.
 - **Phase 4 — crantr.** Replace the `crant_meta()` global-option hack with a
@@ -328,11 +345,12 @@ To let bancr migrate with minimal changes to `seatabler` itself:
 1. **Hosting:** `flyconnectome/seatabler` (where the consumer packages live) or
    `natverse/seatabler`. Leaning flyconnectome.
 2. **CRAN:** submit eventually? Affects dependency hygiene.
-3. **Python dependency:** resolved (see §5a) — `seatabler` declares the
-   `seatable_api` requirement and exposes a `seatabler.python_provisioner` hook;
-   fafbseg registers `simple_python` through it. seatabler never manages python
-   environments itself. Remaining sub-question: confirm fafbseg adds
-   `seatable_api` to `simple_python`'s default package set.
+3. **Python dependency:** resolved (see §5a) — `seatabler` depends on
+   `nat.python` and calls its env engine (`check_module` / `simple_python`)
+   directly for both provisioning and pandas→R conversion. The
+   `seatabler.python_provisioner` hook has been removed; there is no consumer
+   registration step. nat.python's `simple_python` "basic" bundle already
+   installs `seatable_api`, and the "minimal" bundle installs pandas.
 4. **Cache location default per server** (`seatabler.cachedir` + per-connection
    `cachedir`).
 5. **Ownership/authorship** of the package (currently scaffolded solo; add
@@ -342,17 +360,24 @@ To let bancr migrate with minimal changes to `seatabler` itself:
 
 ## 11. Status of this skeleton
 
-Implemented here as a starting point for discussion (not yet tested against a
-live server):
+No longer a skeleton — Phase 1 is complete and the suite passes against a live
+server in CI (89 tests, SKIP 0). Core files:
 
 - `R/connection.R` — `seatable_connection()`, `default_connection()`,
   `set_default_connection()`, `with_connection()`, `seatable_token()`, print
-  method. **This is the design centrepiece to review first.**
-- `R/auth.R` — `check_seatable()`, `seatable_login()`, `seatable_set_token()`.
+  method.
+- `R/auth.R` — `seatable_module()`, `seatable_login()`,
+  `seatable_generate_token()`.
 - `R/base.R` — `seatable_base()` + workspace/table resolution.
-- `R/columns.R` — `seatable_columns()`.
-- `R/query.R` — `seatable_query()` vertical slice with the pagination logic.
-- `tests/testthat/test-connection.R` — pure connection-object tests (no network).
+- `R/columns.R` — `seatable_columns()` + column-schema mutation and
+  select-options.
+- `R/query.R` — `seatable_query()` with pagination.
+- `R/rest.R`, `R/schema.R`, `R/bigdata.R`, `R/snapshots.R` — REST/JWT transport,
+  schema helpers, big-data archive/unarchive, snapshot listing (the bancr-origin
+  additive surface from §5).
+- `tests/testthat/` — connection-object unit tests plus live tests
+  (`test-flytable-live.R`) that skip gracefully without a token.
 
-Marked `TODO(port)` where the richer coercion (`fix_coltypes`, full
-`pandas2df`, multi-select) should be ported from fafbseg.
+The former `TODO(port)` items are done: read-side coercion (`fix_coltypes`, full
+`pandas2df`, multi-select) is delegated to `nat.python::pandas2df()` rather than
+reimplemented here.
