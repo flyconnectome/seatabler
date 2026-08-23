@@ -1,0 +1,84 @@
+# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
+# Test coverage via covr, uploaded to Codecov. Python is provisioned through
+# nat.python::simple_python() -- the same entry point end users are pointed at
+# and the same step R-CMD-check.yaml uses -- so coverage exercises the real
+# user-facing install path.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+name: test-coverage
+
+permissions: read-all
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      # Token for the live flytable testfruit tests. When the secret is unset
+      # those tests skip themselves, so forks without it still produce coverage.
+      FLYTABLE_TOKEN: ${{ secrets.FLYTABLE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Pin to a version with stable seatable_api / pandas wheels (see
+          # R-CMD-check.yaml).
+          python-version: '3.12'
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::covr, any::xml2
+          needs: coverage
+
+      - name: Provision Python packages via nat.python (the user-facing path)
+        # Mirrors R-CMD-check.yaml: install pandas + seatable_api via the entry
+        # point end users use, then pin RETICULATE_PYTHON to the exact
+        # interpreter reticulate populated so the live tests find seatable_api.
+        shell: Rscript {0}
+        run: |
+          nat.python::simple_python("minimal", pkgs = "seatable_api",
+                                    miniconda = FALSE)
+          reticulate::import("seatable_api")
+          cat(sprintf("RETICULATE_PYTHON=%s\n", reticulate::py_exe()),
+              file = Sys.getenv("GITHUB_ENV"), append = TRUE)
+
+      - name: Test coverage
+        shell: Rscript {0}
+        run: |
+          cov <- covr::package_coverage(
+            quiet = FALSE,
+            clean = FALSE,
+            install_path = file.path(normalizePath(Sys.getenv("RUNNER_TEMP"), winslash = "/"), "package")
+          )
+          covr::to_cobertura(cov)
+
+      - uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+          file: ./cobertura.xml
+          plugin: noop
+          disable_search: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Show testthat output
+        if: always()
+        shell: bash
+        run: |
+          find '${{ runner.temp }}/package' -name 'testthat.Rout*' -exec cat '{}' \; || true
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-test-failures
+          path: ${{ runner.temp }}/package

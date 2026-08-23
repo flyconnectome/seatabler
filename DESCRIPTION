@@ -41,7 +41,8 @@ Suggests:
     withr,
     httr2,
     pbapply,
-    lubridate
+    lubridate,
+    covr
 Remotes:
     flyconnectome/nat.python
 Config/testthat/edition: 3
