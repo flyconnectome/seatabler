@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">seatabler</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,7 +28,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Column names, types and default R types for a table</h1>
-      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/v0.2.0/R/columns.R" class="external-link"><code>R/columns.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/main/R/columns.R" class="external-link"><code>R/columns.R</code></a></small>
       <div class="d-none name"><code>seatable_columns.Rd</code></div>
     </div>
 
@@ -42,7 +42,8 @@
 <span>  <span class="va">table</span>,</span>
 <span>  base <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  con <span class="op">=</span> <span class="fu"><a href="default_connection.html">default_connection</a></span><span class="op">(</span><span class="op">)</span>,</span>
-<span>  include_key <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  include_key <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  cached <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -68,10 +69,24 @@
 (useful for schema operations and for debugging API errors that reference
 keys). Defaults to <code>FALSE</code>.</p></dd>
 
+
+<dt id="arg-cached">cached<a class="anchor" aria-label="anchor" href="#arg-cached"></a></dt>
+<dd><p>Whether to use the cached schema (the default). The schema is
+memoised for an hour to save a metadata round-trip on every read; pass
+<code>FALSE</code> to force a refresh after changing the schema outside this session.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data.frame with <code>name</code>, <code>type</code>, <code>rtype</code> and (optionally) <code>key</code>.</p>
+    <p>A data.frame with <code>name</code>, <code>type</code>, <code>rtype</code>, <code>data</code> and (optionally)
+<code>key</code>.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>The returned data.frame also carries a <code>data</code> list-column with each
+column's raw SeaTable metadata (e.g. a select column's <code>options</code>, a date
+column's <code>format</code>), which the read paths use to coerce results and
+<code><a href="seatable_select_options.html">seatable_select_options()</a></code> uses to list option names.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

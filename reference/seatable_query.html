@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">seatabler</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,7 +28,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Run a SQL query against a SeaTable server</h1>
-      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/v0.2.0/R/query.R" class="external-link"><code>R/query.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/main/R/query.R" class="external-link"><code>R/query.R</code></a></small>
       <div class="d-none name"><code>seatable_query.Rd</code></div>
     </div>
 
@@ -47,6 +47,7 @@
 <span>  convert <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  paginate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  chunksize <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  collapse_lists <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  retries <span class="op">=</span> <span class="fl">3L</span>,</span>
 <span>  progress <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/interactive.html" class="external-link">interactive</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -93,6 +94,13 @@ server-specific maximum; pagination returns the full result.</p></dd>
 <dt id="arg-chunksize">chunksize<a class="anchor" aria-label="anchor" href="#arg-chunksize"></a></dt>
 <dd><p>Advanced: force <code>LIMIT</code>/<code>OFFSET</code> paging in fixed windows of
 this size. The default <code>NULL</code> auto-detects the server's per-call cap.</p></dd>
+
+
+<dt id="arg-collapse-lists">collapse_lists<a class="anchor" aria-label="anchor" href="#arg-collapse-lists"></a></dt>
+<dd><p>Whether to collapse multiple-select (and other list)
+columns into simple character vectors. The default <code>TRUE</code> comma-joins
+multi-valued cells; <code>FALSE</code> keeps them as list-columns. A string is used as
+the separator instead of <code>","</code>.</p></dd>
 
 
 <dt id="arg-retries">retries<a class="anchor" aria-label="anchor" href="#arg-retries"></a></dt>

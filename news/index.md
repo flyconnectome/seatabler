@@ -1,5 +1,34 @@
 # Changelog
 
+## seatabler 0.2.1
+
+- Restored the schema-aware result coercion that was dropped when
+  `flytable_query` became `seatable_query`:
+  [`nat.python::pandas2df()`](https://rdrr.io/pkg/nat.python/man/pandas2df.html)
+  handles only the generic pandas -\> R conversion (and leaves
+  multiple-select cells as list-columns, having no SeaTable schema), so
+  `flytable2df()` / `flytable_fix_coltypes()` / `flytable_parse_date()`
+  are ported over as internal `st_coerce_df()` and applied on every read
+  path. This collapses multiple-select columns to character vectors and
+  restores SeaTable column types (numbers, checkboxes, dates).
+- [`seatable_query()`](https://flyconnectome.github.io/seatabler/reference/seatable_query.md)
+  and
+  [`seatable_list_rows()`](https://flyconnectome.github.io/seatabler/reference/seatable_list_rows.md)
+  gain a `collapse_lists` argument (default `TRUE`, comma-joining;
+  `FALSE` keeps list-columns; a string sets the separator); it also
+  passes through
+  [`seatable_list_selected()`](https://flyconnectome.github.io/seatabler/reference/seatable_list_selected.md).
+- Restored the memoisation of
+  [`seatable_columns()`](https://flyconnectome.github.io/seatabler/reference/seatable_columns.md)
+  (schema cached for an hour, invalidated after schema mutations;
+  `cached = FALSE` forces a refresh), which had been dropped, so
+  paginated reads no longer refetch the schema per page. It now also
+  carries the per-column `data` metadata, so date columns parse with
+  their declared format and
+  [`seatable_select_options()`](https://flyconnectome.github.io/seatabler/reference/seatable_select_options.md)
+  reads option names from the cached schema rather than a fresh
+  `get_metadata()` call.
+
 ## seatabler 0.2.0
 
 First tagged release. A server-agnostic R client for SeaTable, factored

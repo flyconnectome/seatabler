@@ -11,7 +11,7 @@ data.frame, or the raw pandas DataFrame when python = TRUE."><meta property="og:
 
     <a class="navbar-brand me-2" href="../index.html">seatabler</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,7 +32,7 @@ data.frame, or the raw pandas DataFrame when python = TRUE."><meta property="og:
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>List rows from a SeaTable table</h1>
-      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/v0.2.0/R/read.R" class="external-link"><code>R/read.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/flyconnectome/seatabler/blob/main/R/read.R" class="external-link"><code>R/read.R</code></a></small>
       <div class="d-none name"><code>seatable_list_rows.Rd</code></div>
     </div>
 
@@ -54,7 +54,8 @@ optionally restricted to a view and ordered by a column. Returns an R
 <span>  start <span class="op">=</span> <span class="fl">0L</span>,</span>
 <span>  limit <span class="op">=</span> <span class="cn">Inf</span>,</span>
 <span>  python <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  chunksize <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  chunksize <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  collapse_lists <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -104,6 +105,13 @@ optionally restricted to a view and ordered by a column. Returns an R
 <dd><p>Advanced: rows to request per call. The default <code>NULL</code>
 chooses a size from the column count (SeaTable allows roughly one million
 cells per request).</p></dd>
+
+
+<dt id="arg-collapse-lists">collapse_lists<a class="anchor" aria-label="anchor" href="#arg-collapse-lists"></a></dt>
+<dd><p>Whether to collapse multiple-select (and other list)
+columns into simple character vectors. The default <code>TRUE</code> comma-joins
+multi-valued cells; <code>FALSE</code> keeps them as list-columns. A string is used as
+the separator instead of <code>","</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

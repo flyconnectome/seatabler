@@ -52,7 +52,7 @@ seatable_list_selected(
 
   Passed to
   [`seatable_query()`](https://flyconnectome.github.io/seatabler/reference/seatable_query.md)
-  (e.g. `limit`, `python`).
+  (e.g. `limit`, `python`, `collapse_lists`).
 
 ## Value
 

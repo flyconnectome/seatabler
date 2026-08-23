@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">seatabler</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -28,9 +28,16 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Changelog</h1>
-      <small>Source: <a href="https://github.com/flyconnectome/seatabler/blob/v0.2.0/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
+      <small>Source: <a href="https://github.com/flyconnectome/seatabler/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.2.1" id="seatabler-021">seatabler 0.2.1<a class="anchor" aria-label="anchor" href="#seatabler-021"></a></h2>
+<ul><li>Restored the schema-aware result coercion that was dropped when <code>flytable_query</code> became <code>seatable_query</code>: <code><a href="https://rdrr.io/pkg/nat.python/man/pandas2df.html" class="external-link">nat.python::pandas2df()</a></code> handles only the generic pandas -&gt; R conversion (and leaves multiple-select cells as list-columns, having no SeaTable schema), so <code>flytable2df()</code> / <code>flytable_fix_coltypes()</code> / <code>flytable_parse_date()</code> are ported over as internal <code>st_coerce_df()</code> and applied on every read path. This collapses multiple-select columns to character vectors and restores SeaTable column types (numbers, checkboxes, dates).</li>
+<li>
+<code><a href="../reference/seatable_query.html">seatable_query()</a></code> and <code><a href="../reference/seatable_list_rows.html">seatable_list_rows()</a></code> gain a <code>collapse_lists</code> argument (default <code>TRUE</code>, comma-joining; <code>FALSE</code> keeps list-columns; a string sets the separator); it also passes through <code><a href="../reference/seatable_list_selected.html">seatable_list_selected()</a></code>.</li>
+<li>Restored the memoisation of <code><a href="../reference/seatable_columns.html">seatable_columns()</a></code> (schema cached for an hour, invalidated after schema mutations; <code>cached = FALSE</code> forces a refresh), which had been dropped, so paginated reads no longer refetch the schema per page. It now also carries the per-column <code>data</code> metadata, so date columns parse with their declared format and <code><a href="../reference/seatable_select_options.html">seatable_select_options()</a></code> reads option names from the cached schema rather than a fresh <code>get_metadata()</code> call.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.0" id="seatabler-020">seatabler 0.2.0<a class="anchor" aria-label="anchor" href="#seatabler-020"></a></h2>
 <p>First tagged release. A server-agnostic R client for SeaTable, factored out of the seatable code embedded in fafbseg (and independently in bancr).</p>

@@ -9,7 +9,8 @@ seatable_columns(
   table,
   base = NULL,
   con = default_connection(),
-  include_key = FALSE
+  include_key = FALSE,
+  cached = TRUE
 )
 ```
 
@@ -35,6 +36,21 @@ seatable_columns(
   schema operations and for debugging API errors that reference keys).
   Defaults to `FALSE`.
 
+- cached:
+
+  Whether to use the cached schema (the default). The schema is memoised
+  for an hour to save a metadata round-trip on every read; pass `FALSE`
+  to force a refresh after changing the schema outside this session.
+
 ## Value
 
-A data.frame with `name`, `type`, `rtype` and (optionally) `key`.
+A data.frame with `name`, `type`, `rtype`, `data` and (optionally)
+`key`.
+
+## Details
+
+The returned data.frame also carries a `data` list-column with each
+column's raw SeaTable metadata (e.g. a select column's `options`, a date
+column's `format`), which the read paths use to coerce results and
+[`seatable_select_options()`](https://flyconnectome.github.io/seatabler/reference/seatable_select_options.md)
+uses to list option names.

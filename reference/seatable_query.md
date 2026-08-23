@@ -14,6 +14,7 @@ seatable_query(
   convert = TRUE,
   paginate = TRUE,
   chunksize = NULL,
+  collapse_lists = TRUE,
   retries = 3L,
   progress = interactive()
 )
@@ -60,6 +61,13 @@ seatable_query(
 
   Advanced: force `LIMIT`/`OFFSET` paging in fixed windows of this size.
   The default `NULL` auto-detects the server's per-call cap.
+
+- collapse_lists:
+
+  Whether to collapse multiple-select (and other list) columns into
+  simple character vectors. The default `TRUE` comma-joins multi-valued
+  cells; `FALSE` keeps them as list-columns. A string is used as the
+  separator instead of `","`.
 
 - retries:
 

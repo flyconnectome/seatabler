@@ -17,7 +17,8 @@ seatable_list_rows(
   start = 0L,
   limit = Inf,
   python = FALSE,
-  chunksize = NULL
+  chunksize = NULL,
+  collapse_lists = TRUE
 )
 ```
 
@@ -67,6 +68,13 @@ seatable_list_rows(
   Advanced: rows to request per call. The default `NULL` chooses a size
   from the column count (SeaTable allows roughly one million cells per
   request).
+
+- collapse_lists:
+
+  Whether to collapse multiple-select (and other list) columns into
+  simple character vectors. The default `TRUE` comma-joins multi-valued
+  cells; `FALSE` keeps them as list-columns. A string is used as the
+  separator instead of `","`.
 
 ## Value
 
