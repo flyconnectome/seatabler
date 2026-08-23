@@ -3,6 +3,7 @@
 ^\.Rproj\.user$
 ^\.git$
 ^\.github$
+^codecov\.yml$
 ^LICENSE\.md$
 ^\.claude$
 ^CLAUDE\.md$

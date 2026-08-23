@@ -1,7 +1,7 @@
 Package: seatabler
 Type: Package
 Title: Generic R Client for SeaTable Servers
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: c(
     person(given = "Gregory",
            family = "Jefferis",
@@ -33,13 +33,16 @@ Imports:
     cachem,
     bit64,
     jsonlite,
+    methods,
     stats,
     utils
 Suggests:
     testthat (>= 3.0.0),
     withr,
     httr2,
-    pbapply
+    pbapply,
+    lubridate,
+    covr
 Remotes:
     flyconnectome/nat.python
 Config/testthat/edition: 3

@@ -56,7 +56,9 @@ seatable_add_column <- function(table, column_name, column_type = "text",
                  column_type = seatable_column_type(column_type))
   if (!is.null(column_data)) kwargs$column_data <- column_data
   if (!is.null(column_key)) kwargs$column_key <- column_key
-  invisible(do.call(base$insert_column, kwargs))
+  res <- do.call(base$insert_column, kwargs)
+  memoise::forget(seatable_columns_memo)
+  invisible(res)
 }
 
 #' @rdname seatable_add_column
@@ -117,7 +119,9 @@ seatable_delete_column <- function(table, column_key, base = NULL,
   con <- as_connection(con)
   if (is.null(base) || is.character(base))
     base <- seatable_base(base_name = base, table = table, con = con)
-  invisible(base$delete_column(table_name = table, column_key = column_key))
+  res <- base$delete_column(table_name = table, column_key = column_key)
+  memoise::forget(seatable_columns_memo)
+  invisible(res)
 }
 
 # Turn a SeaTable column type string into the ColumnTypes enum member the SDK

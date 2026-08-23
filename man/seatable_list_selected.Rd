@@ -31,7 +31,8 @@ supplied.}
 
 \item{con}{A \link{seatable_connection}.}
 
-\item{...}{Passed to \code{\link[=seatable_query]{seatable_query()}} (e.g. \code{limit}, \code{python}).}
+\item{...}{Passed to \code{\link[=seatable_query]{seatable_query()}} (e.g. \code{limit}, \code{python},
+\code{collapse_lists}).}
 }
 \value{
 A data.frame of the selected rows and columns.

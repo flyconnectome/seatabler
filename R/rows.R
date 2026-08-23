@@ -401,14 +401,8 @@ seatable_select_options <- function(table, col = NULL, base = NULL,
   con <- as_connection(con)
   if (is.null(base) || is.character(base))
     base <- seatable_base(base_name = base, table = table, con = con)
-  md <- base$get_metadata()
-  tablenames <- vapply(md$tables, "[[", character(1), "name")
-  if (!table %in% tablenames)
-    stop("Table '", table, "' not found in this base.")
-  cols <- md$tables[[which(table == tablenames)]]$columns
-  colnames_ <- vapply(cols, "[[", character(1), "name")
-  types <- vapply(cols, "[[", character(1), "type")
-  sel <- colnames_[types %in% c("single-select", "multiple-select")]
+  tidf <- seatable_columns(table, base = base, con = con)
+  sel <- tidf$name[tidf$type %in% c("single-select", "multiple-select")]
   if (!is.null(col)) {
     missing <- setdiff(col, sel)
     if (length(missing) > 0)
@@ -417,7 +411,7 @@ seatable_select_options <- function(table, col = NULL, base = NULL,
     sel <- col
   }
   stats::setNames(lapply(sel, function(cc) {
-    dd <- cols[[match(cc, colnames_)]]$data
+    dd <- tidf$data[[match(cc, tidf$name)]]
     if (is.null(dd) || is.null(dd$options)) character(0)
     else vapply(dd$options, "[[", character(1), "name")
   }), sel)
@@ -435,8 +429,10 @@ seatable_add_select_options <- function(table, col, options, base = NULL,
   options <- unique(as.character(options))
   optlist <- lapply(options, function(nm)
     list(name = nm, color = st_random_option_color(), textColor = "#FFFFFF"))
-  invisible(base$add_column_options(table_name = table, column = col,
-                                    options = optlist))
+  res <- base$add_column_options(table_name = table, column = col,
+                                 options = optlist)
+  memoise::forget(seatable_columns_memo)
+  invisible(res)
 }
 
 # a SeaTable-style random hex colour for a newly created option

@@ -4,7 +4,10 @@
 # connection. The pagination logic is carried over verbatim (it was recently
 # hardened for servers whose per-call SQL row cap is unknown). The pandas -> R
 # conversion is delegated to nat.python::pandas2df, which recovers 64-bit ids as
-# bit64 integers, flattens object columns and turns datetimes into POSIXct.
+# bit64 integers, flattens scalar object columns and turns datetimes into
+# POSIXct. Multiple-select columns come back from pandas2df as list-columns
+# (it has no SeaTable schema to collapse them); st_coerce_lists() finishes the
+# job here.
 
 #' Run a SQL query against a SeaTable server
 #'
@@ -23,6 +26,10 @@
 #'   server-specific maximum; pagination returns the full result.
 #' @param chunksize Advanced: force `LIMIT`/`OFFSET` paging in fixed windows of
 #'   this size. The default `NULL` auto-detects the server's per-call cap.
+#' @param collapse_lists Whether to collapse multiple-select (and other list)
+#'   columns into simple character vectors. The default `TRUE` comma-joins
+#'   multi-valued cells; `FALSE` keeps them as list-columns. A string is used as
+#'   the separator instead of `","`.
 #' @param retries Number of times to retry a page that fails because the server
 #'   is rate-limiting us (HTTP 429), with exponential backoff between attempts.
 #'   Long paginated reads are the usual way to hit a quota, and losing the whole
@@ -44,7 +51,8 @@
 seatable_query <- function(sql, con = default_connection(),
                            limit = 100000L, base = NULL, python = FALSE,
                            convert = TRUE, paginate = TRUE, chunksize = NULL,
-                           retries = 3L, progress = interactive()) {
+                           collapse_lists = TRUE, retries = 3L,
+                           progress = interactive()) {
   con <- as_connection(con)
   checkmate::assert_character(sql, len = 1, pattern = "select", ignore.case = TRUE)
   res <- stringr::str_match(sql,
@@ -91,6 +99,7 @@ seatable_query <- function(sql, con = default_connection(),
     reticulate::py_capture_output(pdd <- reticulate::py_call(pd$DataFrame, ll))
     if (python) return(pdd)
     df <- nat.python::pandas2df(pdd)
+    df <- st_coerce_df(df, tidf = colinfo, collapse = collapse_lists)
     fields <- sql2fields(sqltext)
     toorder <- if (length(fields) == 1 && fields == "*")
       intersect(colinfo$name, colnames(df)) else intersect(fields, colnames(df))
