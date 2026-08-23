@@ -39,7 +39,8 @@ Suggests:
     testthat (>= 3.0.0),
     withr,
     httr2,
-    pbapply
+    pbapply,
+    lubridate
 Remotes:
     flyconnectome/nat.python
 Config/testthat/edition: 3
