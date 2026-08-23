@@ -50,6 +50,33 @@ test_that("seatable_list_selected back-quotes a vector of fields and needs idfie
     "Supply .idfield")
 })
 
+test_that("seatable_list_selected reorders SELECT * to the schema order", {
+  # seatable_query returns columns in an arbitrary order; when fields = "*"
+  # they are reordered to the table's schema order, unknown columns last
+  fq <- data.frame(extra = 1L, name = "a", id = 2L, stringsAsFactors = FALSE)
+  testthat::with_mocked_bindings(
+    seatable_query = function(sql, ...) fq,
+    seatable_columns = function(...) data.frame(name = c("id", "name"),
+                                                stringsAsFactors = FALSE),
+    {
+      out <- seatable_list_selected(table = "t", con = dummy_con())
+      expect_identical(names(out), c("id", "name", "extra"))
+    })
+})
+
+test_that("st_col_type reads a column's R type from the schema", {
+  tidf <- data.frame(name = c("id", "label"), rtype = c("numeric", "character"),
+                     stringsAsFactors = FALSE)
+  testthat::with_mocked_bindings(
+    seatable_columns = function(...) tidf,
+    {
+      expect_identical(seatabler:::st_col_type("id", "t", con = dummy_con()),
+                       "numeric")
+      expect_identical(seatabler:::st_col_type("label", "t", con = dummy_con()),
+                       "character")
+    })
+})
+
 test_that("seatable_delete_rows dry run is offline, dedups, and reads _id", {
   expect_identical(
     seatable_delete_rows(c("x", "x", "y"), table = "t", con = dummy_con()),
