@@ -8,7 +8,8 @@ seatable_columns(
   table,
   base = NULL,
   con = default_connection(),
-  include_key = FALSE
+  include_key = FALSE,
+  cached = TRUE
 )
 }
 \arguments{
@@ -22,10 +23,21 @@ seatable_columns(
 \item{include_key}{Whether to include the internal SeaTable column \code{key}
 (useful for schema operations and for debugging API errors that reference
 keys). Defaults to \code{FALSE}.}
+
+\item{cached}{Whether to use the cached schema (the default). The schema is
+memoised for an hour to save a metadata round-trip on every read; pass
+\code{FALSE} to force a refresh after changing the schema outside this session.}
 }
 \value{
-A data.frame with \code{name}, \code{type}, \code{rtype} and (optionally) \code{key}.
+A data.frame with \code{name}, \code{type}, \code{rtype}, \code{data} and (optionally)
+\code{key}.
 }
 \description{
 Column names, types and default R types for a table
+}
+\details{
+The returned data.frame also carries a \code{data} list-column with each
+column's raw SeaTable metadata (e.g. a select column's \code{options}, a date
+column's \code{format}), which the read paths use to coerce results and
+\code{\link[=seatable_select_options]{seatable_select_options()}} uses to list option names.
 }

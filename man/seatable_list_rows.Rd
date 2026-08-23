@@ -14,7 +14,8 @@ seatable_list_rows(
   start = 0L,
   limit = Inf,
   python = FALSE,
-  chunksize = NULL
+  chunksize = NULL,
+  collapse_lists = TRUE
 )
 }
 \arguments{
@@ -41,6 +42,11 @@ seatable_list_rows(
 \item{chunksize}{Advanced: rows to request per call. The default \code{NULL}
 chooses a size from the column count (SeaTable allows roughly one million
 cells per request).}
+
+\item{collapse_lists}{Whether to collapse multiple-select (and other list)
+columns into simple character vectors. The default \code{TRUE} comma-joins
+multi-valued cells; \code{FALSE} keeps them as list-columns. A string is used as
+the separator instead of \code{","}.}
 }
 \value{
 An R \code{data.frame}, or a pandas \code{DataFrame} when \code{python = TRUE}.

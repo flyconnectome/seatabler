@@ -13,6 +13,7 @@ seatable_query(
   convert = TRUE,
   paginate = TRUE,
   chunksize = NULL,
+  collapse_lists = TRUE,
   retries = 3L,
   progress = interactive()
 )
@@ -40,6 +41,11 @@ server-specific maximum; pagination returns the full result.}
 
 \item{chunksize}{Advanced: force \code{LIMIT}/\code{OFFSET} paging in fixed windows of
 this size. The default \code{NULL} auto-detects the server's per-call cap.}
+
+\item{collapse_lists}{Whether to collapse multiple-select (and other list)
+columns into simple character vectors. The default \code{TRUE} comma-joins
+multi-valued cells; \code{FALSE} keeps them as list-columns. A string is used as
+the separator instead of \code{","}.}
 
 \item{retries}{Number of times to retry a page that fails because the server
 is rate-limiting us (HTTP 429), with exponential backoff between attempts.

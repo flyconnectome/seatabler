@@ -1,8 +1,8 @@
 # Non-SQL read paths: list_rows (the SDK's paginated row listing) and
 # list_selected (a thin SQL builder over seatable_query). Both return the same
-# post-processed data.frame that seatable_query does -- read-side coercion is
-# delegated to nat.python::pandas2df, so there is no `collapse_lists` knob here
-# (SeaTable list-cell flattening happens there, uniformly).
+# post-processed data.frame that seatable_query does: nat.python::pandas2df()
+# for the pandas -> R conversion, then st_coerce_lists() for the schema-aware
+# collapsing of multiple-select columns that pandas2df leaves as list-columns.
 
 #' List rows from a SeaTable table
 #'
@@ -32,6 +32,10 @@
 #' @param chunksize Advanced: rows to request per call. The default `NULL`
 #'   chooses a size from the column count (SeaTable allows roughly one million
 #'   cells per request).
+#' @param collapse_lists Whether to collapse multiple-select (and other list)
+#'   columns into simple character vectors. The default `TRUE` comma-joins
+#'   multi-valued cells; `FALSE` keeps them as list-columns. A string is used as
+#'   the separator instead of `","`.
 #'
 #' @return An R `data.frame`, or a pandas `DataFrame` when `python = TRUE`.
 #' @seealso [seatable_query()], [seatable_list_selected()]
@@ -39,7 +43,7 @@
 seatable_list_rows <- function(table, base = NULL, con = default_connection(),
                                view_name = NULL, order_by = NULL, desc = FALSE,
                                start = 0L, limit = Inf, python = FALSE,
-                               chunksize = NULL) {
+                               chunksize = NULL, collapse_lists = TRUE) {
   con <- as_connection(con)
   if (is.null(base) || is.character(base))
     base <- seatable_base(base_name = base, table = table, con = con)
@@ -80,6 +84,7 @@ seatable_list_rows <- function(table, base = NULL, con = default_connection(),
   if (python) return(pdd)
 
   df <- nat.python::pandas2df(pdd)
+  df <- st_coerce_df(df, tidf = colinfo, collapse = collapse_lists)
   toorder <- intersect(colinfo$name, colnames(df))
   df <- df[c(toorder, setdiff(colnames(df), toorder))]
   if (is.finite(limit) && nrow(df) > limit) df <- df[seq_len(limit), , drop = FALSE]
@@ -109,7 +114,8 @@ seatable_list_rows <- function(table, base = NULL, con = default_connection(),
 #' @param base Optional base name or `Base` object; discovered from `table` when
 #'   `NULL`.
 #' @param con A [seatable_connection].
-#' @param ... Passed to [seatable_query()] (e.g. `limit`, `python`).
+#' @param ... Passed to [seatable_query()] (e.g. `limit`, `python`,
+#'   `collapse_lists`).
 #'
 #' @return A data.frame of the selected rows and columns.
 #' @seealso [seatable_query()], [seatable_list_rows()]
