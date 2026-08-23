@@ -33,6 +33,7 @@ Imports:
     cachem,
     bit64,
     jsonlite,
+    methods,
     stats,
     utils
 Suggests:
