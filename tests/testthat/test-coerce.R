@@ -100,3 +100,52 @@ test_that("st_coerce_df leaves columns absent from the schema alone", {
   out <- seatabler:::st_coerce_df(df, tidf = tidf)
   expect_identical(out[["COUNT(_id)"]], 42L)
 })
+
+# ---- st_parse_date --------------------------------------------------------
+
+sp <- function(...) seatabler:::st_parse_date(...)
+
+test_that("st_parse_date uses the column's declared format", {
+  # "YYYY-MM-DD HH:mm" -> date + time
+  t <- sp("2021-06-23 07:01", colinfo = list(format = "YYYY-MM-DD HH:mm"))
+  expect_s3_class(t, "POSIXt")
+  expect_identical(format(t, tz = "UTC"), "2021-06-23 07:01:00")
+  # "YYYY-MM-DD" -> date only
+  d <- sp("2021-06-23", colinfo = list(format = "YYYY-MM-DD"))
+  expect_s3_class(d, "POSIXt")
+  expect_identical(format(d, tz = "UTC"), "2021-06-23")
+})
+
+test_that("st_parse_date warns and passes through an unrecognised format", {
+  expect_warning(out <- sp("x", colinfo = list(format = "DD/MM/YYYY")),
+                 "Unrecognised date format")
+  expect_identical(out, "x")
+})
+
+test_that("st_parse_date guesses the format from the values", {
+  # bare date
+  expect_identical(format(sp("2021-06-23"), tz = "UTC"), "2021-06-23")
+  # ISO with a trailing Z (GMT) -> strips Z/T and parses to the second
+  expect_identical(format(sp("2022-01-12T09:30:00Z"), tz = "UTC"),
+                   "2022-01-12 09:30:00")
+  # ISO with a numeric offset (T but no Z) -> timestamp format with %z
+  expect_identical(format(sp("2021-06-23T07:01:00+00:00"), tz = "UTC"),
+                   "2021-06-23 07:01:00")
+  # space-separated to the minute
+  expect_identical(format(sp("2021-06-23 07:01"), tz = "UTC"),
+                   "2021-06-23 07:01:00")
+})
+
+test_that("st_parse_date warns on empty and unparseable columns", {
+  expect_warning(out <- sp(c(NA, "")), "cannot parse empty date column")
+  expect_identical(out, c(NA, ""))
+  expect_warning(out2 <- sp(c("foo", "bar")), "Unrecognised date format")
+  expect_identical(out2, c("foo", "bar"))
+})
+
+test_that("st_parse_date has a base-R fallback when lubridate is off", {
+  # lubridate = FALSE forces strptime; the tz colon is stripped for %z
+  out <- sp("2021-06-23T07:01:00+00:00", lubridate = FALSE)
+  expect_s3_class(out, "POSIXt")
+  expect_identical(format(out, tz = "UTC"), "2021-06-23 07:01:00")
+})

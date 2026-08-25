@@ -75,3 +75,86 @@ test_that("df2appendpayload drops all-NA columns and arrays multi-select", {
   expect_false("empty" %in% names(r[[1]]))
   expect_identical(as.character(r[[2]]$tags), c("Y", "Z"))
 })
+
+# ---- small pure helpers ---------------------------------------------------
+
+test_that("st_random_option_color is a hex colour", {
+  col <- seatabler:::st_random_option_color()
+  expect_match(col, "^#[0-9A-F]{6}$")
+})
+
+test_that("st_chunk_apply applies FUN over chunks", {
+  chunks <- list(data.frame(a = 1:2), data.frame(a = 3:5))
+  out <- seatabler:::st_chunk_apply(chunks, function(ch) nrow(ch) > 1)
+  expect_identical(unname(out), c(TRUE, TRUE))
+})
+
+test_that("st_resolve_multi_select_cols honours an explicit override", {
+  df <- data.frame(a = 1, tags = 2, extra = 3)
+  # explicit names are intersected with the frame's columns, no lookup needed
+  expect_identical(
+    seatabler:::st_resolve_multi_select_cols(df, "t", base = NULL, con = NULL,
+                                             multi_select_cols = c("tags", "nope")),
+    "tags")
+})
+
+# ---- select-option reading / checking (mocked schema) ---------------------
+
+dummy_con <- function()
+  seatable_connection(url = "https://example.com/", token_envvar = "NO_TOKEN")
+
+# a schema frame shaped like seatable_columns() returns, carrying per-column
+# `data` metadata with select options
+mock_tidf <- function() {
+  tidf <- data.frame(
+    name = c("status", "tags", "note"),
+    type = c("single-select", "multiple-select", "text"),
+    stringsAsFactors = FALSE)
+  tidf$data <- list(
+    list(options = list(list(name = "new"), list(name = "done"))),
+    list(options = list(list(name = "AB"))),
+    NULL)
+  tidf
+}
+
+test_that("seatable_select_options reads option names from the schema", {
+  testthat::with_mocked_bindings(
+    seatable_base = function(...) "base",
+    seatable_columns = function(...) mock_tidf(),
+    {
+      # no col -> every select column
+      all <- seatable_select_options("t", con = dummy_con())
+      expect_identical(all, list(status = c("new", "done"), tags = "AB"))
+      # a single named column
+      one <- seatable_select_options("t", "status", con = dummy_con())
+      expect_identical(one, list(status = c("new", "done")))
+      # a non-select column errors
+      expect_error(seatable_select_options("t", "note", con = dummy_con()),
+                   "single/multiple-select")
+    })
+})
+
+test_that("st_check_multi_select_values rejects or adds unknown options", {
+  df <- data.frame(row_id = "r1", stringsAsFactors = FALSE)
+  df$tags <- list(c("AB", "CD"))          # CD is not yet an option
+  added <- NULL
+  testthat::with_mocked_bindings(
+    seatable_select_options = function(table, col, ...)
+      stats::setNames(list("AB"), col),
+    seatable_add_select_options = function(table, col, options, ...) {
+      added <<- options; invisible(NULL)
+    },
+    {
+      # default: refuse and point at the fix
+      expect_error(
+        seatabler:::st_check_multi_select_values(df, "t", base = NULL,
+                                                 con = dummy_con(), "tags"),
+        "no option")
+      # allow_new_options = TRUE: add the missing one and return the frame
+      out <- seatabler:::st_check_multi_select_values(
+        df, "t", base = NULL, con = dummy_con(), "tags",
+        allow_new_options = TRUE)
+      expect_identical(added, "CD")
+      expect_identical(out, df)
+    })
+})
