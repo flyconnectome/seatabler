@@ -1,3 +1,11 @@
+# seatabler 0.2.2
+
+* Declare the minimum `nat.python` version in `DESCRIPTION`
+  (`nat.python (>= 0.2.0)`). Since 0.2.0 seatabler has called
+  `nat.python::check_module()` / `simple_python()`, which only exist in
+  nat.python 0.2.0; an older nat.python installed cleanly and then failed at
+  call time (#8).
+
 # seatabler 0.2.1
 
 * Restored the schema-aware result coercion that was dropped when

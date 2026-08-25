@@ -1,7 +1,7 @@
 Package: seatabler
 Type: Package
 Title: Generic R Client for SeaTable Servers
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: c(
     person(given = "Gregory",
            family = "Jefferis",
@@ -25,7 +25,7 @@ Encoding: UTF-8
 Language: en-GB
 Imports:
     reticulate,
-    nat.python,
+    nat.python (>= 0.2.0),
     checkmate,
     stringr,
     dplyr,
