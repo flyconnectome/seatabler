@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">seatabler</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.2</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -31,6 +31,10 @@
       <small>Source: <a href="https://github.com/flyconnectome/seatabler/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="0.2.2" id="seatabler-022">seatabler 0.2.2<a class="anchor" aria-label="anchor" href="#seatabler-022"></a></h2>
+<ul><li>Declare the minimum <code>nat.python</code> version in <code>DESCRIPTION</code> (<code>nat.python (&gt;= 0.2.0)</code>). Since 0.2.0 seatabler has called <code><a href="https://rdrr.io/pkg/nat.python/man/check_module.html" class="external-link">nat.python::check_module()</a></code> / <code>simple_python()</code>, which only exist in nat.python 0.2.0; an older nat.python installed cleanly and then failed at call time (<a href="https://github.com/flyconnectome/seatabler/issues/8" class="external-link">#8</a>).</li>
+</ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.2.1" id="seatabler-021">seatabler 0.2.1<a class="anchor" aria-label="anchor" href="#seatabler-021"></a></h2>
 <ul><li>Restored the schema-aware result coercion that was dropped when <code>flytable_query</code> became <code>seatable_query</code>: <code><a href="https://rdrr.io/pkg/nat.python/man/pandas2df.html" class="external-link">nat.python::pandas2df()</a></code> handles only the generic pandas -&gt; R conversion (and leaves multiple-select cells as list-columns, having no SeaTable schema), so <code>flytable2df()</code> / <code>flytable_fix_coltypes()</code> / <code>flytable_parse_date()</code> are ported over as internal <code>st_coerce_df()</code> and applied on every read path. This collapses multiple-select columns to character vectors and restores SeaTable column types (numbers, checkboxes, dates).</li>
