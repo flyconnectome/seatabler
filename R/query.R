@@ -151,11 +151,7 @@ seatable_query <- function(sql, con = default_connection(),
   }
   if (length(pages) == 0) return(NULL)
   if (isTRUE(progress)) message("Read ", offset, " rows.")
-  out <- if (length(pages) == 1) pages[[1]] else {
-    tt <- try(do.call(rbind, pages), silent = TRUE)
-    if (inherits(tt, "try-error")) tt <- dplyr::bind_rows(pages)
-    tt
-  }
+  out <- if (length(pages) == 1) pages[[1]] else st_rbind_pages(pages)
   if (nrow(out) > limit) out <- out[seq_len(limit), , drop = FALSE]
   out
 }
@@ -176,4 +172,46 @@ is_rate_limit <- function(pyout) {
                       "(?:http|status|code|error)[^0-9]{0,6}429|",
                       "429[^0-9]{0,6}(?:too many|client error)"),
                paste(pyout, collapse = " "), ignore.case = TRUE, perl = TRUE))
+}
+
+# Join the pages of a paginated read into one data.frame.
+#
+# Each page is converted from pandas on its own, so one column can arrive with a
+# different R type on different pages. pandas types a column of whole numbers
+# as int64 on a page with no blank cells and as float64 on a page with one.
+# nat.python then gives int64 values of 2^53 or more as integer64, and gives
+# float64 as double. A page on which the column is blank gives logical NA.
+#
+# rbind() does not check this. It copies an integer64 value into a double,
+# integer, logical or character column as its raw bits, so a value of 2^53
+# reads back as about 4.45e-308. It gives no error or warning. So convert every
+# column that is integer64 on some pages to one type on all pages first:
+# integer64 when the other pages hold only whole numbers, double when they
+# hold a fraction, and character when they hold text.
+st_rbind_pages <- function(pages) {
+  cols <- Reduce(union, lapply(pages, colnames))
+  for (cl in cols) {
+    has <- vapply(pages, function(p) cl %in% colnames(p), logical(1))
+    is64 <- vapply(pages, function(p) bit64::is.integer64(p[[cl]]), logical(1))
+    if (!any(is64) || all(is64[has])) next
+    other <- lapply(pages[has & !is64], function(p) p[[cl]])
+    to <- if (any(vapply(other, is.character, logical(1)))) {
+      as.character
+    } else if (all(vapply(other, function(v) is.numeric(v) || is.logical(v),
+                          logical(1)))) {
+      whole <- all(vapply(other, function(v) {
+        v <- as.double(v[!is.na(v)])
+        all(v == trunc(v) & abs(v) < 2^63)
+      }, logical(1)))
+      if (whole) bit64::as.integer64 else as.double
+    } else next
+    for (i in which(has)) pages[[i]][[cl]] <- to(pages[[i]][[cl]])
+  }
+  out <- try(do.call(rbind, pages), silent = TRUE)
+  if (inherits(out, "try-error")) out <- dplyr::bind_rows(pages)
+  nexpected <- sum(vapply(pages, nrow, integer(1)))
+  if (nrow(out) != nexpected)
+    stop("Joining ", length(pages), " pages gave ", nrow(out),
+         " rows, not ", nexpected, ".")
+  out
 }
