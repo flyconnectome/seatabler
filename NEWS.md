@@ -1,3 +1,12 @@
+# seatabler (development version)
+
+* `seatable_query()` no longer corrupts integer64 values when it joins the pages
+  of a paginated read. Each page is converted on its own, so one column could
+  be integer64 on one page and double, integer, logical or character on
+  another. `rbind()` then copied the integer64 values as raw bits, and a value
+  of 2^53 read back as about 4.45e-308, with no warning. The pages are now given
+  one type for each such column before they are joined.
+
 # seatabler 0.2.2
 
 * Declare the minimum `nat.python` version in `DESCRIPTION`
