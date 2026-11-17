@@ -89,6 +89,39 @@ gateway returns an error. Big data is an append \emph{destination}, not a
 property of the table (a table can hold both grid and archived rows) — see
 \code{\link[=seatable_archive_rows]{seatable_archive_rows()}}.
 }
+\section{Dates and times}{
+ seatabler treats every date you store in SeaTable
+as a UTC time. Date columns come back as \code{POSIXct} in UTC, and a time you
+write comes back as the same instant whatever the time of year.
+\itemize{
+\item \strong{Reading date columns.} A date cell holds a clock time with no time
+zone. SeaTable 4 and later add the offset of the server's own zone
+(Europe/London on FlyTable) to each value returned, e.g.
+\verb{2025-07-15T12:00:00+01:00} in summer and \verb{2025-01-15T12:00:00Z} in
+winter. That offset is ignored: the clock digits are read as UTC, so both
+read back as 12:00 UTC. Date-only columns read back as midnight UTC on
+the stored day.
+\item \strong{System columns.} \verb{_ctime} and \verb{_mtime} are set by the server at the
+moment a row is created or changed, so their offset is honoured and they
+are true UTC instants.
+\item \strong{Writing.} \code{\link[=seatable_update_rows]{seatable_update_rows()}} and \code{\link[=seatable_append_rows]{seatable_append_rows()}}
+convert \code{POSIXct} and \code{POSIXlt} columns to UTC and send them without a
+zone, so a time in any time zone is stored as its UTC clock time. \code{Date}
+columns are sent as \code{YYYY-MM-DD}. Character columns are sent as they are:
+write them as UTC with no zone, e.g. \code{"2025-07-15 11:00:00"}. Do not add
+\code{Z} or an offset, because the server converts such values to its own
+zone, and in summer they would read back an hour out.
+\item \strong{Web interface.} Times typed into the SeaTable web page are stored as
+typed, so enter them in UTC, not in local summer time.
+}
+
+Two limits remain. Date columns store minutes at most, so seconds are
+dropped. And a UTC time that falls in the hour skipped when the server's
+zone moves its clocks forward (01:00–01:59 UTC on the last Sunday in March
+for London) does not exist as a local clock time, so the server stores it
+an hour later.
+}
+
 \examples{
 \dontrun{
 rows <- seatable_query("SELECT _id, name FROM neurons LIMIT 2", con = con)

@@ -52,6 +52,7 @@
 #' @param allow_new_options When a multiple-select value is not already an
 #'   option for its column, whether to add it automatically (via
 #'   [seatable_add_select_options()]) rather than erroring.
+#' @inheritSection seatable_query Dates and times
 #'
 #' @return Logical, invisibly: `TRUE` on success. Failures normally abort with
 #'   the SeaTable error message.
