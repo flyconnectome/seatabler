@@ -304,6 +304,17 @@ df2seatable <- function(df, append = TRUE, multi_select_cols = character(0)) {
   int64cols <- which(vapply(df, bit64::is.integer64, logical(1)))
   for (i in int64cols) df[[i]] <- as.character(df[[i]])
 
+  # send dates as zone-less UTC strings, which st_parse_date reads back
+  # unchanged: the server treats a zone-less time as local and tags it with
+  # that offset, which the reader ignores. Formatting here (rather than leaving
+  # it to jsonlite / pandas) also converts times in other zones to UTC and
+  # copes with NA dates on every upload path.
+  datecols <- which(vapply(df, inherits, logical(1), c("POSIXt", "Date")))
+  for (i in datecols) {
+    df[[i]] <- if (inherits(df[[i]], "Date")) format(df[[i]], "%Y-%m-%d")
+    else format(as.POSIXct(df[[i]]), "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  }
+
   multi_select_cols <- intersect(multi_select_cols, colnames(df))
   for (col in multi_select_cols)
     df[[col]] <- st_listify_multiselect_col(df[[col]], col)
