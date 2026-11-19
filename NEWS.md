@@ -1,3 +1,15 @@
+# seatabler (development version)
+
+* Dates work with SeaTable 4 and later, which return date cells with the
+  server's zone offset (e.g. `+01:00` in London summer time). User date columns
+  are read as UTC clock time, ignoring that offset; `_ctime`/`_mtime` honour it,
+  as they are true instants. `seatable_update_rows()` and
+  `seatable_append_rows()` now send `POSIXct`/`POSIXlt` columns as zone-less
+  UTC and `Date` columns as `YYYY-MM-DD`, so a time round-trips to the same
+  instant whatever its time zone or the time of year. This also stops `NA`
+  dates crashing uploads. See the new "Dates and times" section in
+  `?seatable_query`.
+
 # seatabler 0.2.2
 
 * Declare the minimum `nat.python` version in `DESCRIPTION`
