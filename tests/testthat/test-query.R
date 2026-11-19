@@ -9,4 +9,6 @@ test_that("is_rate_limit spots throttling but not ordinary errors", {
 test_that("sql2fields reads the selected columns", {
   expect_equal(seatabler:::sql2fields("SELECT * FROM t"), "*")
   expect_equal(seatabler:::sql2fields("SELECT a, b FROM t"), c("a", "b"))
+  # no SELECT ... FROM to match -> empty
+  expect_equal(seatabler:::sql2fields("not a query"), character())
 })
