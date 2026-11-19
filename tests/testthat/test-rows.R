@@ -11,6 +11,22 @@ test_that("df2seatable stringifies int64 columns by value", {
   expect_identical(out$x, c("720575940621039145", "720575940626877799"))
 })
 
+test_that("df2seatable sends dates as zone-less UTC strings", {
+  # a London (BST) time must go out as its UTC equivalent, with no zone, so
+  # that the reader's wall-clock-as-UTC parse gives back the same instant
+  df <- data.frame(row_id = c("r1", "r2"), stringsAsFactors = FALSE)
+  df$when <- as.POSIXct(c("2025-07-15 12:00:05", NA), tz = "Europe/London")
+  df$utc <- as.POSIXct(c("2025-01-15 12:00:00", "2025-07-15 23:30:00"),
+                       tz = "UTC")
+  df$lt <- as.POSIXlt(df$utc)
+  df$day <- as.Date(c("2025-07-15", NA))
+  out <- seatabler:::df2seatable(df, append = FALSE)
+  expect_identical(out$when, c("2025-07-15 11:00:05", NA))
+  expect_identical(out$utc, c("2025-01-15 12:00:00", "2025-07-15 23:30:00"))
+  expect_identical(out$lt, out$utc)
+  expect_identical(out$day, c("2025-07-15", NA))
+})
+
 test_that("df2seatable enforces ids on update and drops them on append", {
   # update (append = FALSE) needs a row_id for every row
   expect_error(seatabler:::df2seatable(data.frame(v = 1), append = FALSE),

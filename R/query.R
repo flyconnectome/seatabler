@@ -41,6 +41,35 @@
 #'   a paginated read stops early because a page kept failing, the rows read so
 #'   far are returned along with a warning saying where it stopped, rather than
 #'   throwing away a read that may have taken minutes.
+#' @section Dates and times: seatabler treats every date you store in SeaTable
+#'   as a UTC time. Date columns come back as `POSIXct` in UTC, and a time you
+#'   write comes back as the same instant whatever the time of year.
+#'
+#'   * **Reading date columns.** A date cell holds a clock time with no time
+#'     zone. SeaTable 4 and later add the offset of the server's own zone
+#'     (Europe/London on FlyTable) to each value returned, e.g.
+#'     `2025-07-15T12:00:00+01:00` in summer and `2025-01-15T12:00:00Z` in
+#'     winter. That offset is ignored: the clock digits are read as UTC, so both
+#'     read back as 12:00 UTC. Date-only columns read back as midnight UTC on
+#'     the stored day.
+#'   * **System columns.** `_ctime` and `_mtime` are set by the server at the
+#'     moment a row is created or changed, so their offset is honoured and they
+#'     are true UTC instants.
+#'   * **Writing.** [seatable_update_rows()] and [seatable_append_rows()]
+#'     convert `POSIXct` and `POSIXlt` columns to UTC and send them without a
+#'     zone, so a time in any time zone is stored as its UTC clock time. `Date`
+#'     columns are sent as `YYYY-MM-DD`. Character columns are sent as they are:
+#'     write them as UTC with no zone, e.g. `"2025-07-15 11:00:00"`. Do not add
+#'     `Z` or an offset, because the server converts such values to its own
+#'     zone, and in summer they would read back an hour out.
+#'   * **Web interface.** Times typed into the SeaTable web page are stored as
+#'     typed, so enter them in UTC, not in local summer time.
+#'
+#'   Two limits remain. Date columns store minutes at most, so seconds are
+#'   dropped. And a UTC time that falls in the hour skipped when the server's
+#'   zone moves its clocks forward (01:00–01:59 UTC on the last Sunday in March
+#'   for London) does not exist as a local clock time, so the server stores it
+#'   an hour later.
 #' @export
 #' @examples
 #' \dontrun{
